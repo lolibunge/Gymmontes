@@ -1,0 +1,150 @@
+import { q, one } from './db';
+import { addDays, daysBetween, today, weekdayOf } from './dates';
+
+export type Segment = { label: string; min: number };
+export type Item = {
+  id: number; position: number; kind: 'ejercicio' | 'cardio';
+  exercise_id: number; slug: string; name: string; muscle: string | null;
+  sets: number | null; reps: string | null; weight_kg: string | null; rest_s: number | null;
+  raise_weight: boolean; note: string | null; segments: Segment[] | null;
+};
+export type Day = { id: number; weekday: number; title: string; subtitle: string | null; note: string | null; items: Item[] };
+
+export async function routineDays(userId: number): Promise<Day[]> {
+  const days = await q<Omit<Day, 'items'>>(
+    `select d.id, d.weekday, d.title, d.subtitle, d.note
+       from routine_days d join routines r on r.id = d.routine_id
+      where r.user_id = $1 and r.active order by d.weekday`,
+    [userId]
+  );
+  if (!days.length) return [];
+  const items = await q<Item & { day_id: number }>(
+    `select i.id, i.day_id, i.position, i.kind, i.exercise_id, e.slug, e.name, e.muscle, i.sets, i.reps,
+            i.weight_kg::text as weight_kg, i.rest_s, i.raise_weight, i.note, i.segments
+       from day_items i join exercises e on e.id = i.exercise_id
+      where i.day_id = any($1) order by i.position`,
+    [days.map((d) => d.id)]
+  );
+  return days.map((d) => ({ ...d, items: items.filter((i) => i.day_id === d.id) }));
+}
+
+export async function dayById(userId: number, dayId: number): Promise<Day | null> {
+  const all = await routineDays(userId);
+  return all.find((d) => d.id === dayId) ?? null;
+}
+
+/** El día que toca hoy; si hoy es descanso, el próximo. */
+export async function todaysPlan(userId: number) {
+  const days = await routineDays(userId);
+  const t = today();
+  const wd = weekdayOf(t);
+  const hoy = days.find((d) => d.weekday === wd) ?? null;
+  const proximo = hoy ?? days.find((d) => d.weekday > wd) ?? days[0] ?? null;
+  return { days, hoy, proximo, wd, t };
+}
+
+export function minutes(segments: Segment[] | null) {
+  return (segments ?? []).reduce((a, s) => a + s.min, 0);
+}
+
+export function weightLabel(kg: string | null) {
+  if (kg === null || kg === undefined) return '—';
+  return `${Number(kg).toString().replace('.', ',')} kg`;
+}
+
+export async function weekDone(userId: number) {
+  const t = today();
+  const monday = addDays(t, 1 - weekdayOf(t));
+  const rows = await q<{ date: string }>(
+    `select distinct to_char(date,'YYYY-MM-DD') as date from sessions
+      where user_id = $1 and date between $2 and $3 and finished_at is not null`,
+    [userId, monday, addDays(monday, 6)]
+  );
+  return new Set(rows.map((r) => weekdayOf(r.date)));
+}
+
+/** Lo que hizo la última vez en ese ejercicio: kg y reps por serie. */
+export async function lastTime(userId: number, exerciseId: number, excludeSession?: number) {
+  const s = await one<{ session_id: number; date: string }>(
+    `select s.id as session_id, to_char(s.date,'YYYY-MM-DD') as date
+       from set_logs l join sessions s on s.id = l.session_id join day_items i on i.id = l.item_id
+      where s.user_id = $1 and i.exercise_id = $2 and l.done and s.id <> coalesce($3, -1)
+      order by s.date desc, s.id desc limit 1`,
+    [userId, exerciseId, excludeSession ?? null]
+  );
+  if (!s) return null;
+  const sets = await q<{ kg: string | null; reps: number | null }>(
+    `select l.kg::text as kg, l.reps from set_logs l join day_items i on i.id = l.item_id
+      where l.session_id = $1 and i.exercise_id = $2 and l.done order by l.set_no`,
+    [s.session_id, exerciseId]
+  );
+  return { date: s.date, sets };
+}
+
+export async function membership(userId: number) {
+  const m = await one<{ paid_on: string; expires_on: string }>(
+    `select to_char(paid_on,'YYYY-MM-DD') as paid_on, to_char(expires_on,'YYYY-MM-DD') as expires_on
+       from memberships where user_id = $1 order by expires_on desc limit 1`,
+    [userId]
+  );
+  if (!m) return null;
+  const t = today();
+  const left = daysBetween(t, m.expires_on);
+  const total = Math.max(1, daysBetween(m.paid_on, m.expires_on));
+  const used = Math.min(total, Math.max(0, daysBetween(m.paid_on, t)));
+  const estado = left < 0 ? 'vencida' : left <= 5 ? 'por vencer' : 'al día';
+  return { ...m, left, pct: Math.round((used / total) * 100), estado } as const;
+}
+
+export async function monthCount(userId: number) {
+  const r = await one<{ n: number }>(
+    `select count(*)::int as n from sessions where user_id = $1 and finished_at is not null
+       and to_char(date,'YYYY-MM') = $2`,
+    [userId, today().slice(0, 7)]
+  );
+  return r?.n ?? 0;
+}
+
+export async function challenge() {
+  return one<{ id: number; title: string; description: string; target: number }>(
+    'select id, title, description, target from challenges where month = $1 limit 1',
+    [today().slice(0, 7)]
+  );
+}
+
+export async function raffle(userId: number) {
+  return one<{ id: number; title: string; closes_on: string; n: number; joined: boolean }>(
+    `select r.id, r.title, to_char(r.closes_on,'YYYY-MM-DD') as closes_on,
+            (select count(*)::int from raffle_entries e where e.raffle_id = r.id) as n,
+            exists(select 1 from raffle_entries e where e.raffle_id = r.id and e.user_id = $1) as joined
+       from raffles r where r.closes_on >= $2 order by r.closes_on limit 1`,
+    [userId, today()]
+  );
+}
+
+export async function news(limit = 5) {
+  return q<{ id: number; date: string; title: string; body: string | null }>(
+    `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news order by date desc limit $1`,
+    [limit]
+  );
+}
+
+export async function stats(userId: number) {
+  const total = await one<{ n: number }>('select count(*)::int as n from sessions where user_id = $1 and finished_at is not null', [userId]);
+  const weeks = await q<{ w: string }>(
+    `select distinct to_char(date_trunc('week', date),'YYYY-MM-DD') as w from sessions
+      where user_id = $1 and finished_at is not null order by w desc`,
+    [userId]
+  );
+  let streak = 0;
+  let expect = addDays(today(), 1 - weekdayOf(today()));
+  const set = new Set(weeks.map((x) => x.w));
+  if (!set.has(expect)) expect = addDays(expect, -7);
+  while (set.has(expect)) { streak++; expect = addDays(expect, -7); }
+  const up = await one<{ n: number }>(
+    `select count(*)::int as n from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
+      where r.user_id = $1 and r.active and i.raise_weight`,
+    [userId]
+  );
+  return { total: total?.n ?? 0, streak, toRaise: up?.n ?? 0 };
+}

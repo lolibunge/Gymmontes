@@ -90,6 +90,11 @@ export function parseSegments(v: string): { label: string; min: number }[] | nul
       continue;
     }
     // "18–20 min a ritmo moderado": con un rango se toma el número más alto.
+    // "30 s intenso" / "45 seg suave" / "1:30 moderado": tramos con segundos
+    const sec = p.match(/^(\d+)\s*(?:s|seg|segundos?|″|")\b\s*(.*)/i);
+    if (sec) { out.push({ label: segLabel(sec[2]), min: Number(sec[1]) / 60 }); continue; }
+    const ms = p.match(/^(\d+):(\d{2})\s*(?:min)?\s*(.*)/i);
+    if (ms) { out.push({ label: segLabel(ms[3]), min: Number(ms[1]) + Number(ms[2]) / 60 }); continue; }
     const m = p.match(/(\d+(?:[.,]\d+)?)(?:\s*[–—-]\s*(\d+(?:[.,]\d+)?))?\s*(?:min(?:utos?)?|′|')?\s*(.*)/i);
     if (!m) continue;
     const min = Number((m[2] ?? m[1]).replace(',', '.'));

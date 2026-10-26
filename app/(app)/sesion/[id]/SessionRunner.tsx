@@ -131,7 +131,7 @@ export default function SessionRunner({ sessionId, date, past, finished, items: 
           <div aria-hidden="true" style={{ display: 'flex', gap: 3, height: 10 }}>
             {(it.segments ?? []).map((s, k) => <span key={k} style={{ flex: s.min, background: s.label === 'Suave' ? 'var(--linea)' : 'var(--violeta)' }} />)}
           </div>
-          <p className="caption muted">{(it.segments ?? []).map((s) => `${s.min}′ ${s.label.toLowerCase()}`).join(' · ')}</p>
+          <p className="caption muted">{(it.segments ?? []).map((s) => `${Number.isInteger(s.min) ? `${s.min}′` : `${Math.round(s.min * 60)}″`} ${s.label.toLowerCase()}`).join(' · ')}</p>
           {it.rows[0].done
             ? <p className="strong brand">Hecho: {it.rows[0].minutes ?? minutes} minutos</p>
             : <Link href={`/timer/${sessionId}/${it.id}`} className="btn btn-primary">Abrir timer <span aria-hidden="true">▶</span></Link>}

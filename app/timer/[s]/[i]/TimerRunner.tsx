@@ -23,6 +23,8 @@ function bell() {
 }
 
 const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
+/** Duración de un tramo: 20′, 30″ o 1′30″ */
+const dur = (min: number) => { const t = Math.round(min * 60); const m = Math.floor(t / 60), sec = t % 60; return m && sec ? `${m}′${sec}″` : m ? `${m}′` : `${sec}″`; };
 
 export default function TimerRunner({ sessionId, itemId, title, segments }: { sessionId: number; itemId: number; title: string; segments: Seg[] }) {
   const ends = useMemo(() => { let a = 0; return segments.map((s) => (a += s.min * 60)); }, [segments]);
@@ -39,8 +41,10 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
     (navigator as any).wakeLock?.request('screen').then((l: any) => (lock = l)).catch(() => {});
     const t = setInterval(() => {
       const now = Date.now();
-      if (last.current != null) setElapsed((e) => Math.min(total, e + (now - last.current!) / 1000));
+      // El delta se calcula acá: dentro del updater, last.current ya valdría "now" y el tiempo no avanzaría.
+      const delta = last.current != null ? (now - last.current) / 1000 : 0;
       last.current = now;
+      if (delta > 0) setElapsed((e) => Math.min(total, e + delta));
     }, 250);
     return () => { clearInterval(t); lock?.release?.(); };
   }, [running, total]);
@@ -76,7 +80,18 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
 
         <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 16 }}>
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: '#d69ae8' }}>{finished ? '¡Listo!' : segments[idx].label}</span>
-          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.05em', fontVariantNumeric: 'tabular-nums' }}>{fmt(Math.ceil(left))}</span>
+          {(() => {
+            const t = Math.ceil(left);
+            const big: React.CSSProperties = { fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' };
+            const unit: React.CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#a3a3a3', paddingLeft: 4 };
+            return (
+              <span role="timer" aria-label={`${Math.floor(t / 60)} minutos ${t % 60} segundos`} style={{ display: 'flex', alignItems: 'flex-start' }}>
+                <span style={{ display: 'flex', flexDirection: 'column' }}><span style={big}>{String(Math.floor(t / 60)).padStart(2, '0')}</span><span style={unit}>MIN</span></span>
+                <span style={{ ...big, padding: '0 2px', opacity: running ? 1 : 0.5 }}>:</span>
+                <span style={{ display: 'flex', flexDirection: 'column' }}><span style={big}>{String(t % 60).padStart(2, '0')}</span><span style={unit}>SEG</span></span>
+              </span>
+            );
+          })()}
           <span style={{ fontSize: 15, color: '#a3a3a3' }}>{finished ? 'Cardio registrado en tu sesión.' : 'quedan de este tramo'}</span>
         </section>
 
@@ -96,11 +111,11 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
           <div className="row" style={{ padding: '16px 0', borderTop: '1px solid #2a2a2a', borderBottom: '1px solid #2a2a2a' }}>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: '#a3a3a3' }}>DESPUÉS</span>
-              <span className="strong">{next ? `${next.label} ${next.min}′` : 'Terminás'}</span>
+              <span className="strong">{next ? `${next.label} ${dur(next.min)}` : 'Terminás'}</span>
             </span>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'flex-end' }}>
               <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em', color: '#a3a3a3' }}>TOTAL</span>
-              <span className="strong">faltan {fmt(Math.ceil(total - elapsed))}</span>
+              <span className="strong" style={{ fontVariantNumeric: 'tabular-nums' }}>{fmt(Math.floor(elapsed))} de {fmt(total)}</span>
             </span>
           </div>
           {finished ? (

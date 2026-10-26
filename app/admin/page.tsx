@@ -83,7 +83,7 @@ export default async function Resumen() {
           <Link key={`c${c.id}`} href={`/admin/socios/${c.id}`} className="list-row">
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span className="strong">Cuota de {c.name} {c.left < 0 ? `venció hace ${-c.left} ${c.left === -1 ? 'día' : 'días'}` : c.left === 0 ? 'vence hoy' : c.left === 1 ? 'vence mañana' : `vence en ${c.left} días`}</span>
-              <span className="caption muted">Pagó el {corta(c.paid_on)}</span>
+              <span className="caption muted">Mes del {corta(c.paid_on)} al {corta(c.expires_on)}</span>
             </span>
             <span className="link" style={{ fontSize: 13, whiteSpace: 'nowrap', color: c.left < 0 ? 'var(--alerta)' : undefined }}>Registrar pago</span>
           </Link>

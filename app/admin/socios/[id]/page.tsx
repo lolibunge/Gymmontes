@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
-import { membership, routineDays, weightLabel, minutes } from '@/lib/data';
-import { corta, DIAS, mesLargo, today, toIso } from '@/lib/dates';
+import { membership, raiseSignals, routineDays, weightLabel, minutes } from '@/lib/data';
+import { corta, daysBetween, DIAS, mesLargo, today, toIso } from '@/lib/dates';
 import { registerPayment } from '../../actions';
 import BackBar from '@/components/BackBar';
 import TempPassword from './TempPassword';
@@ -25,7 +25,8 @@ export default async function Socio({ params, searchParams }: { params: { id: st
   const st = await one<{ mes: number; last: string | null }>(
     `select count(*) filter (where to_char(date,'YYYY-MM') = $2)::int as mes, to_char(max(date),'YYYY-MM-DD') as last
        from sessions where user_id = $1 and finished_at is not null`, [id, today().slice(0, 7)]);
-  const subir = days.reduce((a, d) => a + d.items.filter((i) => i.raise_weight).length, 0);
+  const sig = await raiseSignals(id, days.flatMap((d) => d.items));
+  const ajustes = days.flatMap((d) => d.items.filter((i) => sig.has(i.id)).map((i) => ({ id: i.id, name: i.name, weekday: d.weekday, dir: sig.get(i.id)!.dir })));
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <BackBar href="/admin/socios" label="Volver a Socios" />
@@ -42,7 +43,7 @@ export default async function Socio({ params, searchParams }: { params: { id: st
         <div className="row"><h2 className="label">Cuota</h2>
           {cuota && <span className={`badge ${cuota.estado === 'vencida' ? 'bg-alerta' : cuota.estado === 'por vencer' ? 'bg-venda brand' : 'bg-cuerda'}`}>{cuota.estado === 'al día' ? 'Al día' : cuota.estado === 'por vencer' ? 'Por vencer' : 'Vencida'}</span>}
         </div>
-        <p>{cuota ? <>Pagó el <b>{corta(cuota.paid_on)}</b> · vence el <b>{corta(cuota.expires_on)}</b> ({cuota.left < 0 ? `hace ${-cuota.left} días` : `faltan ${cuota.left} días`})</> : 'Todavía no hay pagos registrados.'}</p>
+        <p>{cuota ? <>Mes pago: del <b>{corta(cuota.paid_on)}</b> al <b>{corta(cuota.expires_on)}</b> ({cuota.left < 0 ? `venció hace ${-cuota.left} días` : `faltan ${cuota.left} días`})</> : 'Todavía no hay pagos registrados.'}</p>
         <form action={registerPayment} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-end' }}>
           <input type="hidden" name="user" value={id} />
           <label className="field" style={{ flex: '1 1 160px' }}><span>Registrar pago</span>
@@ -53,10 +54,34 @@ export default async function Socio({ params, searchParams }: { params: { id: st
         {pagos.length > 1 && <span className="caption muted">Pagos anteriores: {pagos.slice(1).map((p) => corta(p.paid_on)).join(' · ')}</span>}
       </section>
 
-      <section style={{ display: 'flex', gap: 10 }}>
-        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{st?.mes ?? 0}</span><span className="caption muted">sesiones este mes</span></div>
-        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{subir}</span><span className="caption muted">para subir peso</span></div>
-        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{st?.last ? corta(st.last) : '—'}</span><span className="caption muted">última vez</span></div>
+      <section className="card bg-cuerda" style={{ gap: 12 }}>
+        <h2 className="label">Cómo viene entrenando</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <span style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="number" style={{ fontSize: 26 }}>{st?.mes ?? 0}</span>
+            <span className="caption muted">{(st?.mes ?? 0) === 1 ? 'sesión' : 'sesiones'} en {mesLargo(today())}</span>
+          </span>
+          <span style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="number" style={{ fontSize: 26 }}>{!st?.last ? '—' : st.last === today() ? 'Hoy' : daysBetween(st.last, today()) === 1 ? 'Ayer' : corta(st.last)}</span>
+            <span className="caption muted">{!st?.last ? 'todavía no entrenó' : daysBetween(st.last, today()) > 7 ? `último entreno · hace ${daysBetween(st.last, today())} días` : 'último entreno'}</span>
+          </span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--linea)', paddingTop: 10, gap: 2 }}>
+          <div className="row" style={{ alignItems: 'baseline' }}>
+            <span className="strong" style={{ fontSize: 14 }}>Para ajustar el peso</span>
+            {ajustes.length > 0 && <Link href={`/admin/socios/${u.id}/editar`} className="link" style={{ fontSize: 13 }}>Editar rutina</Link>}
+          </div>
+          {ajustes.length === 0 && <span className="caption muted">Nada por ahora. Aparece cuando el socio marca Liviano o Pesado, o llega al máximo de reps.</span>}
+          {ajustes.map((a) => (
+            <div key={a.id} className="row" style={{ alignItems: 'baseline', gap: 10, padding: '6px 0', fontSize: 13 }}>
+              <span>{a.name} <span className="muted">· {DIAS[a.weekday]}</span></span>
+              <span style={{ whiteSpace: 'nowrap', fontWeight: 700, color: a.dir === 'down' ? 'var(--alerta)' : 'var(--violeta-texto)' }}>
+                {a.dir === 'down' ? '▼ bajar' : '▲ subir'}
+              </span>
+            </div>
+          ))}
+          {ajustes.length > 0 && <span className="caption muted" style={{ paddingTop: 4 }}>▲ marcó Liviano, llegó al máximo de reps o lo marcaste vos en la rutina · ▼ marcó Pesado. El socio ya lo ve como sugerencia en su sesión.</span>}
+        </div>
       </section>
 
       <section className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)' }}>

@@ -22,10 +22,20 @@ export default async function Pagar() {
         </p>
       </header>
 
-      {cfg.fee && (
-        <section className="card bg-esquina" style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between' }}>
-          <span className="label" style={{ color: '#d69ae8' }}>Cuota mensual</span>
-          <span className="number" style={{ color: '#f5f5f5', fontSize: 28 }}>{cfg.fee}</span>
+      {(cfg.fee || cfg.dayFee) && (
+        <section className="card bg-esquina" style={{ gap: 8 }}>
+          {cfg.fee && (
+            <div className="row" style={{ alignItems: 'baseline' }}>
+              <span className="label" style={{ color: '#d69ae8' }}>Cuota mensual</span>
+              <span className="number" style={{ color: '#f5f5f5', fontSize: 28 }}>{cfg.fee}</span>
+            </div>
+          )}
+          {cfg.dayFee && (
+            <div className="row" style={{ alignItems: 'baseline', paddingTop: cfg.fee ? 8 : 0, borderTop: cfg.fee ? '1px solid #2a2a2a' : 0 }}>
+              <span className="caption" style={{ color: '#bdbdbd' }}>Pase por día</span>
+              <span className="strong" style={{ color: '#f5f5f5' }}>{cfg.dayFee}</span>
+            </div>
+          )}
         </section>
       )}
 

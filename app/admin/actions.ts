@@ -219,6 +219,7 @@ export async function saveCobros(form: FormData) {
   const mp = clean('mp_link');
   if (mp && !/^https:\/\//.test(mp)) redirect('/admin/gym?tab=cobros&error=link');
   await setSetting('pay_fee', clean('fee'));
+  await setSetting('pay_day_fee', clean('day_fee'));
   await setSetting('pay_bank', clean('bank'));
   await setSetting('pay_mp_link', mp);
   await setSetting('pay_cash', form.get('cash') === 'on' ? 'si' : 'no');

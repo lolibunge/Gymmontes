@@ -162,7 +162,10 @@ async function Cobros({ guardado, error }: { guardado: boolean; error?: string }
           {guardado && <span className="caption brand strong">Guardado</span>}
         </div>
         <label className="field"><span>Cuota mensual</span>
-          <input className="input" name="fee" defaultValue={cfg.fee} placeholder="Ej.: $ 1.800" />
+          <input className="input" name="fee" defaultValue={cfg.fee} placeholder="Ej.: $ 1.200" />
+        </label>
+        <label className="field"><span>Pase por día (opcional)</span>
+          <input className="input" name="day_fee" defaultValue={cfg.dayFee} placeholder="Ej.: $ 200" />
         </label>
         <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600 }}>
           <input type="checkbox" name="cash" defaultChecked={cfg.cash} style={{ width: 20, height: 20 }} /> Efectivo en recepción

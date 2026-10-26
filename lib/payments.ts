@@ -1,14 +1,14 @@
 import { one, q } from './db';
 
-export type PaySettings = { fee: string; bank: string; mpLink: string; cash: boolean; cashNote: string };
+export type PaySettings = { fee: string; dayFee: string; bank: string; mpLink: string; cash: boolean; cashNote: string };
 
-const KEYS = ['pay_fee', 'pay_bank', 'pay_mp_link', 'pay_cash', 'pay_cash_note'];
+const KEYS = ['pay_fee', 'pay_day_fee', 'pay_bank', 'pay_mp_link', 'pay_cash', 'pay_cash_note'];
 
 /** Cómo se cobra la cuota: lo carga la dueña en Gym → Cobros. */
 export async function paySettings(): Promise<PaySettings> {
   const rows = await q<{ key: string; value: string | null }>('select key, value from gym_settings where key = any($1)', [KEYS]);
   const v = (k: string) => rows.find((r) => r.key === k)?.value ?? '';
-  return { fee: v('pay_fee'), bank: v('pay_bank'), mpLink: v('pay_mp_link'), cash: v('pay_cash') !== 'no', cashNote: v('pay_cash_note') };
+  return { fee: v('pay_fee'), dayFee: v('pay_day_fee'), bank: v('pay_bank'), mpLink: v('pay_mp_link'), cash: v('pay_cash') !== 'no', cashNote: v('pay_cash_note') };
 }
 
 export async function setSetting(key: string, value: string | null) {

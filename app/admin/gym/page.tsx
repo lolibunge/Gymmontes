@@ -19,12 +19,11 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
       <h1 className="title-lg">Tu gym</h1>
-      <nav role="tablist" aria-label="Secciones" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 8, background: 'var(--cuerda)' }}>
+      <nav role="tablist" aria-label="Secciones" style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {TABS.map((k) => (
           <Link key={k} href={`/admin/gym?tab=${k}`} role="tab" aria-selected={tab === k}
-            style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 12.5,
-              fontWeight: tab === k ? 600 : 500, background: tab === k ? 'var(--lona)' : 'transparent', color: tab === k ? 'var(--guante)' : 'var(--campana)',
-              boxShadow: tab === k ? 'inset 0 0 0 1.5px var(--linea)' : 'none' }}>{LABEL[k]}</Link>
+            style={{ height: 40, padding: '0 16px', display: 'flex', alignItems: 'center', borderRadius: 999, fontSize: 14,
+              fontWeight: 600, background: tab === k ? 'var(--guante)' : 'var(--cuerda)', color: tab === k ? 'var(--lona)' : 'var(--guante)' }}>{LABEL[k]}</Link>
         ))}
       </nav>
       {tab === 'cobros' && <Cobros guardado={!!searchParams.guardado} error={searchParams.error} />}
@@ -75,27 +74,52 @@ async function Reto({ mes, next }: { mes: string; next: string }) {
         `select count(*) filter (where c >= $2)::int as n, count(*)::int as activos from (
            select user_id, count(*) as c from sessions where finished_at is not null and to_char(date,'YYYY-MM') = $1 group by user_id) s`, [mes, actual.target])
     : null;
-  const form = (month: string, data: typeof actual, label: string) => (
-    <form action={saveChallenge} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 10 }}>
+  const form = (month: string, data: typeof actual) => (
+    <form action={saveChallenge} style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12 }}>
       <input type="hidden" name="month" value={month} />
-      <span className="label">{label}</span>
       <label className="field"><span>Título</span><input className="input" name="title" required defaultValue={data?.title ?? ''} placeholder="Ej.: 15 sesiones en el mes" /></label>
       <label className="field"><span>Meta (sesiones)</span><input className="input" name="target" type="number" min={1} max={31} required defaultValue={data?.target ?? 12} /></label>
       <label className="field"><span>Mensaje para los socios</span><textarea className="input" name="description" rows={2} defaultValue={data?.description ?? ''} /></label>
       <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>{data ? 'Guardar cambios' : 'Programar reto'}</button>
     </form>
   );
+  const summary = { listStyle: 'none', cursor: 'pointer' } as const;
   return (
     <>
-      {actual ? (
-        <section className="card bg-violeta" style={{ padding: 18 }}>
-          <span className="label">Reto de {mesLargo(`${mes}-01`)} · en curso</span>
-          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{actual.title}</span>
-          <span className="caption">{cumplieron?.activos ?? 0} {cumplieron?.activos === 1 ? 'socio entrenó' : 'socios entrenaron'} este mes · {cumplieron?.n ?? 0} ya lo cumplieron</span>
-        </section>
-      ) : form(mes, null, `Reto de ${mesLargo(`${mes}-01`)}`)}
-      {actual && form(mes, actual, `Editar reto de ${mesLargo(`${mes}-01`)}`)}
-      {form(next, proximo, `Reto de ${mesLargo(`${next}-01`)}`)}
+      <p className="caption muted">Hay un reto por mes. Los socios ven el del mes en curso; el del mes que viene lo podés dejar listo y aparece solo el día 1.</p>
+
+      <details className={`card ${actual ? 'bg-violeta' : ''}`} style={{ padding: 18, boxShadow: actual ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
+        <summary style={summary}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="row" style={{ alignItems: 'baseline' }}>
+              <span className="label">{mesLargo(`${mes}-01`)} · en curso</span>
+              <span className="strong" style={{ fontSize: 13, textDecoration: 'underline' }}>{actual ? 'Editar' : 'Crear'}</span>
+            </span>
+            {actual ? (
+              <>
+                <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{actual.title}</span>
+                <span className="caption">{cumplieron?.activos ?? 0} {cumplieron?.activos === 1 ? 'socio entrenó' : 'socios entrenaron'} este mes · {cumplieron?.n ?? 0} ya lo cumplieron</span>
+              </>
+            ) : <span className="caption muted">Este mes no hay reto.</span>}
+          </span>
+        </summary>
+        {form(mes, actual)}
+      </details>
+
+      <details className="card" style={{ padding: 18, boxShadow: 'inset 0 0 0 1.5px var(--linea)' }}>
+        <summary style={summary}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <span className="row" style={{ alignItems: 'baseline' }}>
+              <span className="label">{mesLargo(`${next}-01`)} · arranca el 1°</span>
+              <span className="link" style={{ fontSize: 13 }}>{proximo ? 'Editar' : 'Programar'}</span>
+            </span>
+            {proximo
+              ? <span className="strong">{proximo.title} <span className="muted" style={{ fontWeight: 400 }}>· meta {proximo.target}</span></span>
+              : <span className="caption muted">Todavía no lo programaste.</span>}
+          </span>
+        </summary>
+        {form(next, proximo)}
+      </details>
     </>
   );
 }

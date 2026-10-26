@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
 import { dayById, lastTime } from '@/lib/data';
-import { today } from '@/lib/dates';
+import { addDays, today, weekdayOf } from '@/lib/dates';
 import SessionRunner, { type RunnerItem } from './SessionRunner';
 
 export default async function Sesion({ params, searchParams }: { params: { id: string }; searchParams: { paso?: string } }) {
@@ -43,5 +43,6 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
   );
   const firstOpen = items.findIndex((i) => i.rows.some((r) => !r.done));
   const start = searchParams.paso ? Number(searchParams.paso) : firstOpen === -1 ? items.length - 1 : firstOpen;
-  return <SessionRunner key={logs.filter((l) => l.done).length} sessionId={s.id} date={s.date} past={s.date < today()} finished={s.finished} items={items} start={Math.max(0, Math.min(items.length - 1, start))} spotify={process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST || 'https://open.spotify.com/search/workout'} />;
+  const back = `/rutina?semana=${addDays(s.date, 1 - weekdayOf(s.date))}&dia=${day.weekday}`;
+  return <SessionRunner back={back} key={logs.filter((l) => l.done).length} sessionId={s.id} date={s.date} past={s.date < today()} finished={s.finished} items={items} start={Math.max(0, Math.min(items.length - 1, start))} spotify={process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST || 'https://open.spotify.com/search/workout'} />;
 }

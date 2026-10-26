@@ -52,6 +52,9 @@ export async function finishSession(form: FormData) {
   const id = Number(form.get('id'));
   await q('update sessions set finished_at = coalesce(finished_at, now()) where id = $1 and user_id = $2', [id, user.id]);
   revalidatePath('/');
+  // Sesiones pasadas o corregidas: volver a la semana donde estaba
+  const volver = String(form.get('volver') || '');
+  if (volver.startsWith('/rutina?')) redirect(volver);
   redirect(`/perfil/historial?ok=${id}`);
 }
 

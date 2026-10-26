@@ -22,7 +22,7 @@ export function timedRange(reps: string | null): [number, number] | null {
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, past, finished, items: initial, start, spotify }: { sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; spotify: string }) {
   const [items, setItems] = useState(() => initial.map((x) => {
     const tr = x.kind === 'ejercicio' ? timedRange(x.reps) : null;
     if (!tr) return x;
@@ -54,7 +54,7 @@ export default function SessionRunner({ sessionId, date, past, finished, items: 
     <main className="page tight" style={{ paddingBottom: 130 }}>
       <header style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="row">
-          <Link href="/rutina" className="icon-btn" aria-label="Volver a la rutina" style={{ marginLeft: -10 }}><Back /></Link>
+          <Link href={back} className="icon-btn" aria-label="Volver a la rutina" style={{ marginLeft: -10 }}><Back /></Link>
           <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · ejercicio {i + 1} de {items.length}</span>
           <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify" style={{ marginRight: -10 }}><Music color="var(--violeta-texto)" size={20} /></a>
         </div>
@@ -176,6 +176,7 @@ export default function SessionRunner({ sessionId, date, past, finished, items: 
         ) : (
           <form action={finishSession} style={{ display: 'flex' }}>
             <input type="hidden" name="id" value={sessionId} />
+            {past && <input type="hidden" name="volver" value={back} />}
             <button className="btn btn-primary" style={{ flex: 1, minHeight: 64 }}>{finished ? 'Guardar cambios' : `Terminar sesión · ${doneItems} de ${items.length}`}</button>
           </form>
         )}

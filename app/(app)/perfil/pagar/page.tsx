@@ -48,11 +48,11 @@ export default async function Pagar() {
       {cfg.bank && (
         <section className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 10 }}>
           <div className="row" style={{ alignItems: 'baseline' }}>
-            <span className="strong">Transferencia bancaria</span>
+            <span className="strong">Depósito o transferencia bancaria</span>
             <CopyButton text={cfg.bank} />
           </div>
           <pre className="bg-cuerda" style={{ margin: 0, padding: '10px 12px', borderRadius: 4, fontFamily: 'var(--font-inter)', fontSize: 14, lineHeight: '20px', whiteSpace: 'pre-wrap' }}>{cfg.bank}</pre>
-          <ReportForm method="transferencia" today={t} label="Ya transferí" />
+          <ReportForm method="transferencia" today={t} label="Ya deposité o transferí" />
         </section>
       )}
 

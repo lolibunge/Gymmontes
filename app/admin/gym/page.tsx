@@ -170,7 +170,7 @@ async function Cobros({ guardado, error }: { guardado: boolean; error?: string }
         <label className="field"><span>Aclaración del efectivo (opcional)</span>
           <input className="input" name="cash_note" defaultValue={cfg.cashNote} placeholder="Ej.: de lunes a viernes de 7 a 21 h" />
         </label>
-        <label className="field"><span>Datos para transferencia</span>
+        <label className="field"><span>Datos para depósito o transferencia</span>
           <textarea className="input" name="bank" rows={4} defaultValue={cfg.bank} placeholder={'Banco: BROU\nCuenta: 000000000-00000\nTitular: ...\nEn el concepto poné tu nombre'} />
         </label>
         <label className="field"><span>Link de cobro de Mercado Pago</span>

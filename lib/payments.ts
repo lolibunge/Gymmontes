@@ -37,4 +37,4 @@ export async function addMonth(userId: number, paidOn: string) {
   await q(`insert into memberships (user_id, paid_on, expires_on) values ($1, $2::date, $2::date + 30)`, [userId, start]);
 }
 
-export const METHOD_LABEL: Record<string, string> = { transferencia: 'Transferencia', mercadopago: 'Mercado Pago', efectivo: 'Efectivo' };
+export const METHOD_LABEL: Record<string, string> = { transferencia: 'Depósito o transferencia', mercadopago: 'Mercado Pago', efectivo: 'Efectivo' };

@@ -34,7 +34,7 @@ export function ReportForm({ method, today, label }: { method: 'transferencia' |
         <input type="file" name="receipt" accept="image/*,application/pdf" style={{ fontSize: 14 }} />
       </label>
       <label className="field"><span>Nota (opcional)</span>
-        <input className="input" name="note" placeholder="Ej.: transferí desde la cuenta de mi pareja" style={{ background: 'var(--lona)' }} />
+        <input className="input" name="note" placeholder="Ej.: deposité en Abitab / transferí desde otra cuenta" style={{ background: 'var(--lona)' }} />
       </label>
       {state.error && <p role="alert" className="caption" style={{ color: 'var(--alerta)', fontWeight: 600 }}>{state.error}</p>}
       <Submit label="Avisar a la dueña" />

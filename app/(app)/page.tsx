@@ -68,7 +68,7 @@ export default async function Inicio() {
             {cardio && <div style={{ display: 'flex', flexDirection: 'column' }}><span className="number">{minutes(cardio.segments)}′</span><span className="caption" style={{ color: '#bdbdbd' }}>de bici</span></div>}
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
-            <Link href={`/rutina?dia=${plan.weekday}`} className="btn btn-outline" style={{ flex: 1, color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', fontSize: 14 }}>Ver rutina</Link>
+            <Link href="/rutina/plan" className="btn btn-outline" style={{ flex: 1, color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', fontSize: 14 }}>Ver rutina</Link>
             {hoy && (
               <form action={startSession} style={{ flex: 1.3, display: 'flex' }}>
                 <input type="hidden" name="dia" value={hoy.id} />

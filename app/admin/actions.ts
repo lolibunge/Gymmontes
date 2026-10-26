@@ -90,7 +90,7 @@ export async function saveEdits(form: FormData) {
       id = r!.id;
     }
     const sets = form.get(`sets_${raw}`);
-    const kg = String(form.get(`kg_${id}`) ?? '').replace(',', '.').trim();
+    const kg = String(form.get(`kg_${raw}`) ?? '').replace(',', '.').trim();
     await q(
       `update day_items i set sets = coalesce($2::int, i.sets), reps = $3, weight_kg = $4, raise_weight = $5, note = $6
          from routine_days d join routines r on r.id = d.routine_id

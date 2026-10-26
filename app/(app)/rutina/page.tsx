@@ -93,7 +93,10 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingTop: 6 }}>
         <div className="row">
           <span className="caption muted">{isToday ? 'Hoy' : `${DIAS[day.weekday]} ${corta(date)}`} · ~{Math.round(total / 5) * 5} min</span>
-          <a href={SPOTIFY} target="_blank" rel="noopener" className="link" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Music color="var(--violeta-texto)" /> Música</a>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <Link href="/rutina/plan" className="link">Plan completo</Link>
+            <a href={SPOTIFY} target="_blank" rel="noopener" className="link" style={{ display: 'flex', alignItems: 'center', gap: 6 }}><Music color="var(--violeta-texto)" /> Música</a>
+          </span>
         </div>
         <h1 className="title-lg">{isToday ? 'Rutina de hoy' : DIAS[day.weekday]}</h1>
         {isPast && <p className="caption muted">{doneDay ? 'Ya lo hiciste. Arriba de la rutina está lo que registraste.' : 'Esto te tocaba. No hay una sesión registrada ese día.'}</p>}

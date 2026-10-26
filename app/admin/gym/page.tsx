@@ -236,12 +236,24 @@ async function Maquinas() {
          from exercises e where e.slug <> 'bicicleta') x
       order by (uso = 0), (steps > 0 and video), uso desc, machine_code nulls last, name`);
   const faltan = rows.filter((r) => r.uso > 0 && (!r.steps || !r.video)).length;
+  const maquinas = await q<{ code: string; name: string | null; n: number }>(
+    `select e.machine_code as code, max(m.name) as name, count(*)::int as n from exercises e left join machines m on m.code = e.machine_code
+      where e.machine_code is not null group by e.machine_code order by e.machine_code`);
   return (
     <section style={{ display: 'flex', flexDirection: 'column' }}>
       <p className="caption muted" style={{ paddingBottom: 10 }}>
-        Cargá cómo se hace cada ejercicio y el video. Con un código de máquina (M01, M02…) se genera el QR para pegar en la máquina.
+        Cargá cómo se hace cada ejercicio y el video. Con un código de máquina (M01, M02…) se genera el QR para pegar en la máquina; si en una máquina se hacen varios ejercicios, poneles el mismo código. Los de mancuernas o peso libre no necesitan QR.
         {faltan > 0 && <> <b style={{ color: 'var(--guante)' }}>{faltan} {faltan === 1 ? 'ejercicio que se usa no tiene' : 'ejercicios que se usan no tienen'} pasos o video.</b> Arriba están los que más socios usan: conviene empezar por esos.</>}
       </p>
+      {maquinas.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 12 }}>
+          {maquinas.map((m) => (
+            <span key={m.code} className="badge" style={{ background: 'var(--cuerda)', color: 'var(--guante)', fontWeight: 600 }}>
+              <b>{m.code}</b>{m.name ? ` ${m.name}` : ''}{m.n > 1 ? ` · ${m.n} ejercicios` : ''}
+            </span>
+          ))}
+        </div>
+      )}
       {rows.map((r) => (
         <Link key={r.id} href={`/admin/ejercicios/${r.id}`} className="list-row">
           <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

@@ -254,9 +254,11 @@ export async function saveExercise(form: FormData) {
   const name = clean('name');
   if (!name) redirect(`/admin/ejercicios/${id}?error=nombre`);
   const code = clean('machine_code')?.toUpperCase().replace(/\s+/g, '') ?? null;
+  // Varias ejercicios pueden compartir máquina (ej.: la polea). La máquina puede tener nombre.
+  const machineName = clean('machine_name');
   if (code) {
-    const taken = await one<{ id: number }>('select id from exercises where upper(machine_code) = $1 and id <> $2', [code, id]);
-    if (taken) redirect(`/admin/ejercicios/${id}?error=codigo`);
+    await q(`insert into machines (code, name) values ($1, $2)
+             on conflict (code) do update set name = coalesce(excluded.name, machines.name)`, [code, machineName]);
   }
   const video = clean('video_url');
   if (video && !/^https:\/\//.test(video)) redirect(`/admin/ejercicios/${id}?error=video`);

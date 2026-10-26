@@ -2,7 +2,11 @@ import { q } from '@/lib/db';
 import Scanner from './Scanner';
 
 export default async function Escanear() {
-  const machines = await q<{ code: string; name: string }>('select machine_code as code, name from exercises where machine_code is not null order by machine_code');
+  // Una fila por máquina: su nombre, o los ejercicios que se hacen ahí
+  const machines = await q<{ code: string; name: string }>(
+    `select e.machine_code as code, coalesce(max(m.name), string_agg(e.name, ' · ' order by e.name)) as name
+       from exercises e left join machines m on m.code = e.machine_code
+      where e.machine_code is not null group by e.machine_code order by e.machine_code`);
   return (
     <main className="page">
       <h1 className="title-lg">Escaneá la máquina</h1>

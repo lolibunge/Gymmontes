@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import QRCode from 'qrcode';
 import BackBar from '@/components/BackBar';
 import { requireOwner } from '@/lib/admin';
-import { one } from '@/lib/db';
+import { one, q } from '@/lib/db';
 import { videoFor } from '@/lib/video';
 import { saveExercise } from '../../actions';
 import PrintButton from './PrintButton';
@@ -19,6 +19,11 @@ export default async function EditarEjercicio({ params, searchParams }: { params
   const ex = await one<{ id: number; name: string; slug: string; muscle: string | null; machine_code: string | null; steps: string[]; video_url: string | null }>(
     'select id, name, slug, muscle, machine_code, steps, video_url from exercises where id = $1', [Number(params.id)]);
   if (!ex) notFound();
+  const machine = ex.machine_code ? await one<{ name: string | null }>('select name from machines where code = $1', [ex.machine_code]) : null;
+  const shared = ex.machine_code ? await q<{ id: number; name: string }>('select id, name from exercises where machine_code = $1 order by name', [ex.machine_code]) : [];
+  const codes = await q<{ code: string; name: string | null; n: number }>(
+    `select e.machine_code as code, m.name, count(*)::int as n from exercises e left join machines m on m.code = e.machine_code
+      where e.machine_code is not null group by e.machine_code, m.name order by e.machine_code`);
   const next = await one<{ c: string }>(`select 'M' || lpad((coalesce(max(substring(machine_code from '\\d+')::int), 0) + 1)::text, 2, '0') as c from exercises where machine_code ~ '^M\\d+$'`);
   const h = headers();
   const origin = process.env.APP_URL?.replace(/\/$/, '') || `${h.get('x-forwarded-proto') || 'https'}://${h.get('x-forwarded-host') || h.get('host')}`;
@@ -35,10 +40,13 @@ export default async function EditarEjercicio({ params, searchParams }: { params
       <form action={saveExercise} className="no-print" style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <input type="hidden" name="id" value={ex.id} />
         <label className="field"><span>Nombre</span><input className="input" name="name" defaultValue={ex.name} required /></label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px', gap: 10 }}>
-          <label className="field"><span>Músculo / zona</span><input className="input" name="muscle" defaultValue={ex.muscle ?? ''} placeholder="Piernas · cuádriceps" /></label>
-          <label className="field"><span>Máquina</span><input className="input" name="machine_code" defaultValue={ex.machine_code ?? ''} placeholder={next?.c ?? 'M01'} /></label>
+        <label className="field"><span>Músculo / zona</span><input className="input" name="muscle" defaultValue={ex.muscle ?? ''} placeholder="Piernas · cuádriceps" /></label>
+        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr', gap: 10 }}>
+          <label className="field"><span>Máquina</span><input className="input" name="machine_code" defaultValue={ex.machine_code ?? ''} placeholder={next?.c ?? 'M01'} list="maquinas" /></label>
+          <label className="field"><span>Nombre de la máquina</span><input className="input" name="machine_name" defaultValue={machine?.name ?? ''} placeholder="Ej.: Polea doble" /></label>
         </div>
+        <datalist id="maquinas">{codes.map((c) => <option key={c.code} value={c.code}>{c.name ? `${c.name} · ` : ''}{c.n} {c.n === 1 ? 'ejercicio' : 'ejercicios'}</option>)}</datalist>
+        <p className="caption muted" style={{ marginTop: -6 }}>Si en una máquina se hacen varios ejercicios (como la polea), poné el mismo código en todos: el QR los muestra juntos. Los de mancuernas o peso libre pueden quedar sin máquina.</p>
         <label className="field"><span>Cómo se hace (un paso por renglón)</span>
           <textarea className="input" name="steps" rows={6} defaultValue={ex.steps.join('\n')}
             placeholder={'Apoyá la espalda entera en el respaldo.\nPies a la altura de los hombros.\nBajá controlando hasta 90°.\nSubí empujando con los talones.'} />
@@ -59,7 +67,8 @@ export default async function EditarEjercicio({ params, searchParams }: { params
           <>
             <div style={{ width: 200, height: 200, background: '#fff', padding: 8, borderRadius: 4 }} dangerouslySetInnerHTML={{ __html: svg }} />
             <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 22 }}>GYM MONTES · MÁQUINA {ex.machine_code!.replace(/^M/, '')}</span>
-            <span className="strong">{ex.name}</span>
+            {machine?.name && <span className="strong" style={{ fontSize: 17 }}>{machine.name}</span>}
+            <span className={machine?.name ? 'caption' : 'strong'}>{shared.map((x) => x.name).join(' · ')}</span>
             <span className="caption muted">Escaneá con la cámara y mirá cómo se usa</span>
             <div className="no-print" style={{ alignSelf: 'stretch', display: 'flex', flexDirection: 'column' }}><PrintButton /></div>
           </>

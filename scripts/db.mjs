@@ -41,6 +41,11 @@ create table if not exists exercises (
   steps jsonb not null default '[]',
   video_url text
 );
+alter table exercises drop constraint if exists exercises_machine_code_key;
+create table if not exists machines (
+  code text primary key,
+  name text
+);
 create table if not exists routines (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,

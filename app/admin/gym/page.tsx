@@ -229,11 +229,12 @@ async function Cobros({ guardado, error }: { guardado: boolean; error?: string }
 
 async function Maquinas() {
   const rows = await q<{ id: number; name: string; machine_code: string | null; steps: number; video: boolean; uso: number }>(
-    `select e.id, e.name, e.machine_code, jsonb_array_length(e.steps) as steps, e.video_url is not null as video,
-            (select count(distinct r.user_id)::int from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
-              where i.exercise_id = e.id and r.active and not i.removed) as uso
-       from exercises e where e.slug <> 'bicicleta'
-      order by (uso = 0), (jsonb_array_length(e.steps) > 0 and e.video_url is not null), uso desc, e.machine_code nulls last, e.name`);
+    `select * from (
+       select e.id, e.name, e.machine_code, jsonb_array_length(e.steps) as steps, e.video_url is not null as video,
+              (select count(distinct r.user_id)::int from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
+                where i.exercise_id = e.id and r.active and not i.removed) as uso
+         from exercises e where e.slug <> 'bicicleta') x
+      order by (uso = 0), (steps > 0 and video), uso desc, machine_code nulls last, name`);
   const faltan = rows.filter((r) => r.uso > 0 && (!r.steps || !r.video)).length;
   return (
     <section style={{ display: 'flex', flexDirection: 'column' }}>

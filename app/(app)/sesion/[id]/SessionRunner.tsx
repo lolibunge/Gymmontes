@@ -290,9 +290,9 @@ function FeelPicker({ value, onChange }: { value: 'liviano' | 'justo' | 'pesado'
         return (
           <button key={f.v} type="button" aria-pressed={on} onClick={() => onChange(on ? null : f.v)}
             style={{ flex: 1, height: 38, padding: '0 12px', border: 0, borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              background: on ? (f.v === 'liviano' ? 'var(--violeta)' : 'var(--guante)') : 'var(--cuerda)',
-              color: on ? (f.v === 'liviano' ? 'var(--on-violeta)' : 'var(--lona)') : 'var(--guante)' }}>
-            {f.v === 'liviano' && on ? '▲ ' : ''}{f.label}
+              background: on ? (f.v === 'liviano' ? 'var(--violeta)' : f.v === 'pesado' ? '#c62828' : 'var(--guante)') : 'var(--cuerda)',
+              color: on ? (f.v === 'liviano' ? 'var(--on-violeta)' : f.v === 'pesado' ? '#ffffff' : 'var(--lona)') : 'var(--guante)' }}>
+            {on && f.v === 'liviano' ? '▲ ' : on && f.v === 'pesado' ? '▼ ' : ''}{f.label}
           </button>
         );
       })}
@@ -309,9 +309,9 @@ function RaiseCard({ up, rows, onPick }: { up: NonNullable<RunnerItem['up']>; ro
   const down = up.dir === 'down';
   const current = rows.find((r) => !r.done)?.kg ?? rows[0]?.kg ?? '';
   return (
-    <div className="card bg-venda" style={{ padding: '12px 14px', marginBottom: 8, gap: 10 }}>
+    <div className="card" style={{ padding: '12px 14px', marginBottom: 8, gap: 10, background: down ? 'var(--alerta-suave)' : 'var(--venda)' }}>
       <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span className="strong brand" style={{ fontSize: 14 }}>{down ? '▼ Probá bajar un poco' : '▲ Toca subir el peso'}</span>
+        <span className="strong" style={{ fontSize: 14, color: down ? 'var(--alerta)' : 'var(--violeta-texto)' }}>{down ? '▼ Probá bajar un poco' : '▲ Toca subir el peso'}</span>
         <span className="caption muted">{up.reason === 'pesado' ? 'La vez pasada te resultó pesado.' : up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
       </span>
       {base != null && base > 0 && (
@@ -322,7 +322,7 @@ function RaiseCard({ up, rows, onPick }: { up: NonNullable<RunnerItem['up']>; ro
             return (
               <button key={st} type="button" aria-pressed={on} onClick={() => onPick(on ? kgTxt(base) : kg)}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, padding: '6px 4px', border: 0, borderRadius: 4, cursor: 'pointer',
-                  background: on ? 'var(--violeta)' : 'var(--lona)', color: on ? 'var(--on-violeta)' : 'var(--guante)', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
+                  background: on ? (down ? '#c62828' : 'var(--violeta)') : 'var(--lona)', color: on ? (down ? '#ffffff' : 'var(--on-violeta)') : 'var(--guante)', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
                 <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 15 }}>{down ? '−' : '+'}{kgTxt(st)}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{kg} kg</span>
               </button>

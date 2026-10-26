@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { appOrigin as origin, COOKIE, googleEnabled, sign } from '@/lib/auth';
+import { appOrigin as origin, COOKIE, googleEnabled, isOwnerEmail, sign } from '@/lib/auth';
 import { one } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -32,8 +32,8 @@ export async function GET(req: NextRequest) {
     let user = await one<{ id: number }>('select id from users where email = $1', [email]);
     if (!user) {
       user = await one<{ id: number }>(
-        `insert into users (name, email, pin_hash, auth_provider) values ($1,$2,'','google') returning id`,
-        [info.given_name || info.name || email.split('@')[0], email]
+        `insert into users (name, email, pin_hash, auth_provider, role) values ($1,$2,'','google',$3) returning id`,
+        [info.given_name || info.name || email.split('@')[0], email, isOwnerEmail(email) ? 'duena' : 'socio']
       );
     }
     const next = req.cookies.get('gm_oauth_next')?.value || '/';

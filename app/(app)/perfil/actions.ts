@@ -3,6 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
+import { emailOwner, esc } from '@/lib/notify';
 
 export async function setTheme(form: FormData) {
   const user = await requireUser();
@@ -46,7 +47,15 @@ export async function sendRequest(form: FormData) {
   const user = await requireUser();
   const goals = form.getAll('goal').map(String);
   const days = Number(form.get('days')) || null;
-  await q('insert into routine_requests (user_id, goals, days, notes) values ($1,$2,$3,$4)', [user.id, goals, days, clean(form.get('notes'))]);
+  const notes = clean(form.get('notes'));
+  await q('insert into routine_requests (user_id, goals, days, notes) values ($1,$2,$3,$4)', [user.id, goals, days, notes]);
+  const base = process.env.APP_URL || 'https://gymmontes.vercel.app';
+  await emailOwner(
+    `Nuevo pedido de rutina: ${user.name}`,
+    `<h2 style="font-family:Arial">Pedido de rutina de ${esc(user.name)}</h2>
+     <p style="font-family:Arial"><b>Busca:</b> ${esc(goals.join(', ') || '—')}<br><b>Días por semana:</b> ${days ?? '—'}<br><b>Lesiones o molestias:</b> ${esc(notes ?? '—')}<br><b>Email:</b> ${esc(user.email)}</p>
+     <p style="font-family:Arial"><a href="${base}/admin/pedidos">Abrir la bandeja de pedidos</a></p>`
+  );
   redirect('/pedir?enviado=1');
 }
 
@@ -57,4 +66,16 @@ export async function joinRaffle(form: FormData) {
   if (leave) await q('delete from raffle_entries where raffle_id = $1 and user_id = $2', [id, user.id]);
   else await q('insert into raffle_entries (raffle_id, user_id) values ($1,$2) on conflict do nothing', [id, user.id]);
   revalidatePath('/comunidad');
+}
+
+/** El socio indica cuándo pagó su último mes (solo si todavía no hay un pago registrado). */
+export async function declarePayment(form: FormData) {
+  const user = await requireUser();
+  const paid = String(form.get('paid_on') || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(paid)) return;
+  const has = await q('select 1 from memberships where user_id = $1 limit 1', [user.id]);
+  if (has.length) return;
+  await q(`insert into memberships (user_id, paid_on, expires_on) values ($1, $2::date, $2::date + 30)`, [user.id, paid]);
+  revalidatePath('/perfil');
+  revalidatePath('/');
 }

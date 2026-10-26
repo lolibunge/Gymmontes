@@ -2,7 +2,7 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { one } from '@/lib/db';
-import { checkPin, COOKIE, hashPassword, setSession } from '@/lib/auth';
+import { checkPin, COOKIE, hashPassword, isOwnerEmail, setSession } from '@/lib/auth';
 
 export type FormState = { error?: string; field?: string };
 
@@ -24,6 +24,10 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   if (u && u.auth_provider === 'google' && !u.pin_hash) return { error: 'Esta cuenta se creó con Google. Tocá "Continuar con Google".' };
   if (!u || !checkPin(password, u.pin_hash)) return { error: 'El email o la contraseña no coinciden.' };
   setSession(u.id);
+  if (isOwnerEmail(email)) {
+    await one(`update users set role = 'duena' where id = $1 and role <> 'duena'`, [u.id]);
+    if (next === '/') redirect('/admin');
+  }
   redirect(safeNext(next));
 }
 
@@ -42,8 +46,8 @@ export async function register(_prev: FormState, form: FormData): Promise<FormSt
     const exists = await one('select id from users where email = $1', [email]);
     if (exists) return { error: 'Ya hay una cuenta con ese email. Probá ingresar.', field: 'email' };
     const r = await one<{ id: number }>(
-      `insert into users (name, email, pin_hash, auth_provider) values ($1,$2,$3,'password') returning id`,
-      [name, email, hashPassword(password)]
+      `insert into users (name, email, pin_hash, auth_provider, role) values ($1,$2,$3,'password',$4) returning id`,
+      [name, email, hashPassword(password), isOwnerEmail(email) ? 'duena' : 'socio']
     );
     id = r!.id;
   } catch (e) {
@@ -51,7 +55,7 @@ export async function register(_prev: FormState, form: FormData): Promise<FormSt
     return { error: NOT_CONNECTED };
   }
   setSession(id);
-  redirect('/?bienvenida=1');
+  redirect(isOwnerEmail(email) ? '/admin' : '/?bienvenida=1');
 }
 
 export async function logout() {

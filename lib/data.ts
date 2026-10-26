@@ -92,7 +92,7 @@ export async function membership(userId: number) {
   const left = daysBetween(t, m.expires_on);
   const total = Math.max(1, daysBetween(m.paid_on, m.expires_on));
   const used = Math.min(total, Math.max(0, daysBetween(m.paid_on, t)));
-  const estado = left < 0 ? 'vencida' : left <= 5 ? 'por vencer' : 'al día';
+  const estado = left < 0 ? 'vencida' : left <= 7 ? 'por vencer' : 'al día';
   return { ...m, left, pct: Math.round((used / total) * 100), estado } as const;
 }
 

@@ -14,7 +14,10 @@ Hecha con Next.js 14 y Postgres (Neon), lista para publicar en Vercel.
    - `DEMO_PIN` y `OWNER_PIN` (opcionales): las contraseñas de las cuentas de ejemplo. Si no se cargan, son `1234` y `4321`.
    - `GYM_CODE` (opcional): si se carga, para crear una cuenta hay que escribir este código (lo da la entrenadora en recepción). Si no, el registro es libre.
    - `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (opcionales): activan "Continuar con Google". Ver más abajo.
-   - `APP_URL` (opcional): la dirección pública, por ejemplo `https://gymmontes.vercel.app`. Se usa para volver desde Google.
+   - `APP_URL` (opcional): la dirección pública, por ejemplo `https://gymmontes.vercel.app`. Se usa para volver desde Google y en los emails.
+   - `OWNER_EMAIL`: el email de la dueña. Esa cuenta entra al panel `/admin` y recibe los avisos de pedidos. Puede ser más de uno, separados por coma.
+   - `RESEND_API_KEY` y `EMAIL_FROM` (opcionales): mandan un email a `OWNER_EMAIL` con cada pedido de rutina (cuenta gratis en resend.com).
+   - `GYM_WHATSAPP` (opcional): número del gimnasio con código de país, sin espacios (ej. `59899123456`). Al pedir rutina, el socio ve un botón para avisar por WhatsApp.
 3. **Deploy.** En cada build, `scripts/db.mjs` crea las tablas si no existen y, si la base está vacía, carga los datos de ejemplo.
 
 ## Cuentas de ejemplo
@@ -65,6 +68,14 @@ npm run dev
 - `lib/`: conexión a la base, sesiones de login y consultas.
 - `scripts/db.mjs`: esquema y datos de ejemplo.
 
+## Panel de la dueña (`/admin`)
+
+- **Pedidos:** bandeja con los pedidos de rutina nuevos (con contador), objetivos, días y lesiones de cada socio.
+- **Socios:** lista con estado de cuota (al día, por vencer en 7 días, vencida), rutina y última sesión.
+- **Ficha del socio:** registrar pago (30 días desde la fecha elegida), ver su rutina, objetivos y lesiones.
+- **Subir rutina:** desde un link de Google Sheets o un CSV con la plantilla `public/plantilla-rutina.csv`, con vista previa antes de guardar. Reemplaza la rutina anterior sin borrar el historial.
+- **Editar rutina:** series, reps, peso y la marca ▲ de subir peso.
+
 ## Próximo paso
 
-Panel de la dueña: cargar y asignar rutinas, responder pedidos, marcar pagos de cuota, publicar novedades, retos y sorteos, y subir los videos de las máquinas.
+Publicar novedades, retos y sorteos desde el panel, subir los videos de las máquinas y recuperar la contraseña por email.

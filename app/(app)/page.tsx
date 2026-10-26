@@ -4,6 +4,8 @@ import { challenge, membership, minutes, monthCount, news, todaysPlan, weekDone 
 import { DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
 import { Arrow, Check, Clock } from '@/components/Icons';
 import { startSession } from './sesion/actions';
+import { one } from '@/lib/db';
+import { pendingCount } from '@/lib/admin';
 
 export default async function Inicio() {
   const user = await requireUser();
@@ -11,6 +13,8 @@ export default async function Inicio() {
     todaysPlan(user.id), weekDone(user.id), membership(user.id), challenge(), monthCount(user.id), news(2),
   ]);
   const plan = hoy ?? proximo;
+  const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
+  const pendientes = user.role === 'duena' ? await pendingCount() : 0;
   const ejercicios = plan?.items.filter((i) => i.kind === 'ejercicio') ?? [];
   const series = ejercicios.reduce((a, i) => a + (i.sets ?? 0), 0);
   const cardio = plan?.items.find((i) => i.kind === 'cardio');
@@ -27,6 +31,16 @@ export default async function Inicio() {
           {user.name.slice(0, 1).toUpperCase()}
         </Link>
       </header>
+
+      {user.role === 'duena' && (
+        <Link href="/admin" className="card bg-esquina" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+          <span style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="label" style={{ color: '#d69ae8' }}>Panel de la dueña</span>
+            <span className="caption" style={{ color: '#bdbdbd' }}>{pendientes ? `${pendientes} ${pendientes === 1 ? 'pedido nuevo' : 'pedidos nuevos'}` : 'Sin pedidos pendientes'}</span>
+          </span>
+          <Arrow color="#f5f5f5" />
+        </Link>
+      )}
 
       {cuota && cuota.estado !== 'al día' && (
         <Link href="/perfil" className={`card ${cuota.estado === 'vencida' ? 'bg-alerta' : 'bg-venda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', color: cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--guante)' }}>
@@ -65,10 +79,21 @@ export default async function Inicio() {
         </section>
       ) : (
         <section className="card bg-esquina" style={{ gap: 14, padding: 20 }}>
-          <span className="label" style={{ color: '#d69ae8' }}>Paso 1</span>
-          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Pedí tu rutina</span>
-          <span className="caption" style={{ color: '#bdbdbd' }}>Contale a la entrenadora qué buscás y cuántos días podés venir. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
-          <Link href="/pedir" className="btn btn-primary">Pedir rutina <Arrow /></Link>
+          {pedido ? (
+            <>
+              <span className="label" style={{ color: '#d69ae8' }}>Pedido enviado</span>
+              <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Tu rutina está en camino</span>
+              <span className="caption" style={{ color: '#bdbdbd' }}>La entrenadora ya tiene tu pedido. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
+              <Link href="/pedir" className="btn btn-outline" style={{ color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', fontSize: 14 }}>Ver mi pedido</Link>
+            </>
+          ) : (
+            <>
+              <span className="label" style={{ color: '#d69ae8' }}>Paso 1</span>
+              <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Pedí tu rutina</span>
+              <span className="caption" style={{ color: '#bdbdbd' }}>Contale a la entrenadora qué buscás y cuántos días podés venir. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
+              <Link href="/pedir" className="btn btn-primary">Pedir rutina <Arrow /></Link>
+            </>
+          )}
         </section>
       )}
 

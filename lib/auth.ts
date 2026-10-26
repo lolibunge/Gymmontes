@@ -40,6 +40,10 @@ export function appOrigin(req: { nextUrl: { origin: string } }) {
   return process.env.APP_URL?.replace(/\/$/, '') || req.nextUrl.origin;
 }
 
+export function isOwnerEmail(email: string) {
+  return (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email.toLowerCase());
+}
+
 export function googleEnabled() {
   return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
 }

@@ -3,7 +3,8 @@ import { requireUser } from '@/lib/auth';
 import { membership, stats } from '@/lib/data';
 import { corta, mesLargo } from '@/lib/dates';
 import { Chevron } from '@/components/Icons';
-import { setTheme } from './actions';
+import { declarePayment, setTheme } from './actions';
+import { today } from '@/lib/dates';
 import { logout } from '@/app/login/actions';
 
 export default async function Perfil() {
@@ -40,12 +41,21 @@ export default async function Perfil() {
           <div className="progress" aria-hidden="true"><span style={{ width: `${cuota.pct}%`, background: c.bar }} /></div>
           <div className="row">
             <span className="caption" style={{ color: c.ink }}>
-              {cuota.estado === 'al día' ? `Pagaste el ${corta(cuota.paid_on)}` : cuota.estado === 'por vencer' ? 'Te avisamos 5 días antes' : 'Renovala en recepción para seguir'}
+              {cuota.estado === 'al día' ? `Pagaste el ${corta(cuota.paid_on)}` : cuota.estado === 'por vencer' ? 'Te avisamos 7 días antes' : 'Renovala en recepción para seguir'}
             </span>
           </div>
         </section>
       ) : (
-        <section className="card bg-cuerda"><span className="label muted">Cuota</span><span className="caption muted">Todavía no hay pagos registrados.</span></section>
+        <form action={declarePayment} className="card bg-cuerda">
+          <span className="label muted">Cuota</span>
+          <span className="caption">¿Cuándo pagaste tu último mes? Con esa fecha calculamos los 30 días y te avisamos 7 días antes de que venza.</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <label style={{ flex: 1 }}><span className="sr">Fecha de pago</span>
+              <input className="input" type="date" name="paid_on" required max={today()} style={{ background: 'var(--lona)' }} />
+            </label>
+            <button className="btn btn-primary" style={{ width: 'auto', fontSize: 14 }}>Guardar</button>
+          </div>
+        </form>
       )}
 
       <section aria-label="Tus números" style={{ display: 'flex', gap: 12, padding: '14px 0', borderTop: '1px solid var(--linea)', borderBottom: '1px solid var(--linea)' }}>

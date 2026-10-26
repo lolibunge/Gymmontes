@@ -202,6 +202,11 @@ async function main() {
   await client.connect();
   try {
     await client.query(SCHEMA);
+    const owners = (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+    if (owners.length) {
+      const up = await client.query(`update users set role = 'duena' where lower(email) = any($1) and role <> 'duena'`, [owners]);
+      if (up.rowCount) console.log(`[db] Cuenta de dueña activada para ${owners.join(', ')}.`);
+    }
     const { rows } = await client.query('select count(*)::int as n from users');
     if (rows[0].n > 0) {
       console.log('[db] Tablas listas; ya hay datos, no se carga el ejemplo.');

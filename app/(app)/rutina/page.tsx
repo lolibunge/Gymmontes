@@ -129,7 +129,7 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
             <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span className="strong" style={{ lineHeight: '19px' }}>{e.name}</span>
               {e.note && <span className="caption muted">{e.note}</span>}
-              {ups.get(e.id) && <span className="brand" style={{ fontSize: 12, fontWeight: 700 }}>▲ Toca subir{ups.get(e.id)!.next != null ? ` a ${weightLabel(String(ups.get(e.id)!.next))}` : ' el peso'}</span>}
+              {ups.get(e.id) && <span className="brand" style={{ fontSize: 12, fontWeight: 700 }}>▲ Toca subir el peso</span>}
             </span>
             <span style={{ width: 70, textAlign: 'right', fontFamily: 'var(--font-archivo)', fontWeight: 700, fontSize: 14 }}>{e.sets} × {e.reps}</span>
             <span style={{ width: 58, textAlign: 'right', fontSize: 14 }} className="muted">{weightLabel(e.weight_kg)}</span>

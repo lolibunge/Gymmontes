@@ -99,20 +99,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           {timedRange(it.reps) ? (
             it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">▲ Hoy probá con {timedRange(it.reps)![1]} segundos.</span></p>
           ) : it.up && (
-            <div className="card bg-venda" style={{ padding: '12px 14px', marginBottom: 8, gap: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span className="strong brand" style={{ fontSize: 14 }}>▲ Toca subir el peso</span>
-                <span className="caption muted">{it.up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : it.up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
-              </span>
-              {it.up.next != null && (
-                it.rows.some((r) => !r.done && num(r.kg) !== it.up!.next)
-                  ? <button type="button" className="btn btn-primary" style={{ width: 'auto', minHeight: 40, padding: '0 12px', fontSize: 13, flex: '0 0 auto', whiteSpace: 'nowrap', justifyContent: 'center' }}
-                      onClick={() => it.rows.forEach((r, j) => { if (!r.done) update(j, { kg: String(it.up!.next).replace('.', ',') }); })}>
-                      Usar {String(it.up.next).replace('.', ',')} kg
-                    </button>
-                  : <span className="strong brand" style={{ fontSize: 13, flexShrink: 0 }}>{String(it.up.next).replace('.', ',')} kg ✓</span>
-              )}
-            </div>
+            <RaiseCard up={it.up} rows={it.rows} onPick={(kg) => it.rows.forEach((r, j) => { if (!r.done) update(j, { kg }); })} />
           )}
           {it.prev ? (
             <div className="row bg-venda" style={{ padding: '12px 14px', borderRadius: 4, fontSize: 13, color: 'var(--violeta-texto)' }}>
@@ -309,6 +296,39 @@ function FeelPicker({ value, onChange }: { value: 'liviano' | 'justo' | 'pesado'
           </button>
         );
       })}
+    </div>
+  );
+}
+
+const STEPS = [0.5, 5, 10];
+const kgTxt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
+
+/** Aviso "▲ Toca subir" con las subas habituales: +0,5, +5 o +10 kg sobre el peso de la vez pasada. */
+function RaiseCard({ up, rows, onPick }: { up: NonNullable<RunnerItem['up']>; rows: Row[]; onPick: (kg: string) => void }) {
+  const base = up.kg;
+  const current = rows.find((r) => !r.done)?.kg ?? rows[0]?.kg ?? '';
+  return (
+    <div className="card bg-venda" style={{ padding: '12px 14px', marginBottom: 8, gap: 10 }}>
+      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+        <span className="strong brand" style={{ fontSize: 14 }}>▲ Toca subir el peso</span>
+        <span className="caption muted">{up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
+      </span>
+      {base != null && base > 0 && (
+        <div role="group" aria-label="Cuánto subir" style={{ display: 'flex', gap: 8 }}>
+          {STEPS.map((st) => {
+            const kg = kgTxt(base + st);
+            const on = current.replace('.', ',') === kg;
+            return (
+              <button key={st} type="button" aria-pressed={on} onClick={() => onPick(on ? kgTxt(base) : kg)}
+                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, padding: '6px 4px', border: 0, borderRadius: 4, cursor: 'pointer',
+                  background: on ? 'var(--violeta)' : 'var(--lona)', color: on ? 'var(--on-violeta)' : 'var(--guante)', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
+                <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 15 }}>+{kgTxt(st)}</span>
+                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{kg} kg</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

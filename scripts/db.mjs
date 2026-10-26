@@ -1,5 +1,6 @@
 // Crea las tablas (si no existen) y carga los datos de ejemplo la primera vez.
 // Corre solo antes de cada build en Vercel. Si no hay DATABASE_URL, no hace nada.
+import { EXERCISE_INFO } from './exercise-info.mjs';
 import pg from 'pg';
 import crypto from 'node:crypto';
 
@@ -235,6 +236,7 @@ async function main() {
       console.log('[db] Tablas listas; ya hay datos, no se carga el ejemplo.');
       await ensureOwners(client);
       await ensurePaySettings(client);
+      await ensureExerciseInfo(client);
       return;
     }
     console.log('[db] Cargando datos de ejemplo…');
@@ -308,6 +310,7 @@ async function main() {
     await client.query('commit');
     await ensureOwners(client);
     await ensurePaySettings(client);
+    await ensureExerciseInfo(client);
     console.log('[db] Listo.');
   } catch (e) {
     await client.query('rollback').catch(() => {});
@@ -328,6 +331,29 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // se crea la cuenta (si no existe) o se le pone esa contraseña. Sirve para
 // entrar la primera vez o para recuperar el acceso.
 // Formas de cobro de GYM MONTES. Solo se cargan si la dueña todavía no guardó las suyas en Gym → Cobros.
+// Pasos, zona y video de cada ejercicio: completa solo lo que esté vacío.
+async function ensureExerciseInfo(client) {
+  const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const map = new Map();
+  for (const info of EXERCISE_INFO) for (const n of info.names) map.set(norm(n), info);
+  const { rows } = await client.query('select id, name from exercises');
+  let n = 0;
+  for (const r of rows) {
+    const info = map.get(norm(r.name));
+    if (!info) continue;
+    const u = await client.query(
+      `update exercises set
+         muscle = coalesce(nullif(muscle, ''), $2),
+         steps = case when jsonb_array_length(steps) = 0 then $3::jsonb else steps end,
+         video_url = coalesce(nullif(video_url, ''), $4)
+       where id = $1 and (muscle is null or muscle = '' or jsonb_array_length(steps) = 0 or video_url is null or video_url = '')`,
+      [r.id, info.muscle, JSON.stringify(info.steps), info.video]
+    );
+    n += u.rowCount;
+  }
+  if (n) console.log(`[db] Pasos y videos cargados en ${n} ejercicios.`);
+}
+
 async function ensurePaySettings(client) {
   const defaults = [
     ['pay_fee', '$ 1.200'],

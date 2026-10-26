@@ -155,7 +155,7 @@ export function sheetsCsvUrls(link: string): string[] | null {
   if (!m) return null;
   const gid = link.match(/[#&?]gid=(\d+)/)?.[1] ?? '0';
   const base = `https://docs.google.com/spreadsheets/d/${m[1]}`;
-  return [`${base}/export?format=csv&gid=${gid}`, `${base}/gviz/tq?tqx=out:csv&gid=${gid}`];
+  return [`${base}/export?format=csv&gid=${gid}`, `${base}/gviz/tq?tqx=out:csv&headers=0&gid=${gid}`];
 }
 
 export function slugify(name: string) {
@@ -185,6 +185,7 @@ function parseTrainerSheet(rows: string[][]): ParseResult {
   let day: ParsedDay | null = null;
   let col: Record<string, number> | null = null;
   let pendingCardio: ParsedItem | null = null;
+  let orphans = 0;
   const addNote = (d: ParsedDay, t: string) => { d.note = d.note ? `${d.note} ${t}` : t; };
 
   for (const r of rows) {
@@ -203,7 +204,10 @@ function parseTrainerSheet(rows: string[][]): ParseResult {
       col = null; pendingCardio = null;
       continue;
     }
-    if (!day) continue;
+    if (!day) {
+      if (filled.length >= 3 && filled.some((c) => /^\d+([.,]\d+)?$/.test(c))) orphans++;
+      continue;
+    }
 
     // Fila de títulos de columnas.
     const ej = n.indexOf('ejercicio');
@@ -217,6 +221,12 @@ function parseTrainerSheet(rows: string[][]): ParseResult {
         alto: find((h) => h.includes('rango alto')),
         proxima: find((h) => h.includes('proxima')),
       };
+      // Algunas descargas de Google borran los títulos de columnas numéricas
+      // (SERIES, PESO). Se deducen por su lugar alrededor de REPETICIONES.
+      if (col.reps >= 0) {
+        if (col.series < 0) col.series = col.reps - 1;
+        if (col.peso < 0) col.peso = col.reps + 1;
+      }
       continue;
     }
 
@@ -260,6 +270,7 @@ function parseTrainerSheet(rows: string[][]): ParseResult {
     day.items.push({ kind: 'ejercicio', name, sets: sets ?? 3, reps: get('reps') || null, weight: num(get('peso')), note: starNote, segments: null, raise });
     pendingCardio = null;
   }
+  if (orphans) warnings.push(`Hay ${orphans} ejercicios antes del primer día que no pudimos ubicar. Revisá que arriba diga el día (por ejemplo 01 · LUNES).`);
   const out = days.filter((d) => d.items.length);
   if (!out.length) warnings.unshift('No encontramos ejercicios debajo de los días.');
   return { days: out, warnings };

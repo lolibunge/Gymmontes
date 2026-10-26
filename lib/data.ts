@@ -150,7 +150,7 @@ export async function stats(userId: number) {
   return { total: total?.n ?? 0, streak, toRaise: up?.n ?? 0 };
 }
 
-export type Raise = { reason: 'planilla' | 'reps' | 'liviano'; kg: number | null; next: number | null };
+export type Raise = { dir: 'up' | 'down'; reason: 'planilla' | 'reps' | 'liviano' | 'pesado'; kg: number | null; next: number | null };
 
 /** Rango "8–12" → [8, 12]. Null si es por tiempo o no tiene números. */
 export function repRange(reps: string | null): [number, number] | null {
@@ -166,7 +166,7 @@ export const nextKg = (kg: number) => kg + (kg < 10 ? 1 : 2.5);
  * Para cada ejercicio, si toca subir el peso y por qué:
  * - la planilla lo marca (▲ / ¿Rango alto? = Sí),
  * - la última vez llegó al tope de reps en todas las series,
- * - o la última vez marcó que le resultó liviano.
+ * - o la última vez marcó que le resultó liviano (o pesado: sugiere bajar).
  */
 export async function raiseSignals(userId: number, items: Item[], upTo?: string, excludeSession?: number): Promise<Map<number, Raise>> {
   const out = new Map<number, Raise>();
@@ -196,9 +196,15 @@ export async function raiseSignals(userId: number, items: Item[], upTo?: string,
     const kg = kgs.length ? Math.max(...kgs) : it.weight_kg != null ? Number(it.weight_kg) : null;
     const range = repRange(it.reps);
     const top = !!range && mine.length >= (it.sets ?? 1) && mine.every((x) => (x.reps ?? 0) >= range[1]);
-    const light = feels.some((f) => f.exercise_id === it.exercise_id && f.feel === 'liviano');
-    const reason = light ? 'liviano' : top ? 'reps' : it.raise_weight ? 'planilla' : null;
-    if (reason) out.set(it.id, { reason, kg, next: kg != null && kg > 0 ? nextKg(kg) : null });
+    // Lo que marcó la socia manda: Liviano → subir, Pesado → bajar, Justo → nada.
+    // Si no marcó nada, se sugiere subir cuando llegó al tope de reps o lo pide la planilla.
+    const feel = feels.find((f) => f.exercise_id === it.exercise_id)?.feel;
+    const next = kg != null && kg > 0 ? nextKg(kg) : null;
+    if (feel === 'liviano') out.set(it.id, { dir: 'up', reason: 'liviano', kg, next });
+    else if (feel === 'pesado') out.set(it.id, { dir: 'down', reason: 'pesado', kg, next: null });
+    else if (feel === 'justo') continue;
+    else if (top) out.set(it.id, { dir: 'up', reason: 'reps', kg, next });
+    else if (it.raise_weight) out.set(it.id, { dir: 'up', reason: 'planilla', kg, next });
   }
   return out;
 }

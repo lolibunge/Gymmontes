@@ -10,7 +10,7 @@ type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
 export type RunnerItem = {
   id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; sets: number; reps: string | null;
   note: string | null; rest: number; raise: boolean;
-  up: { reason: 'planilla' | 'reps' | 'liviano'; kg: number | null; next: number | null } | null;
+  up: { dir: 'up' | 'down'; reason: 'planilla' | 'reps' | 'liviano' | 'pesado'; kg: number | null; next: number | null } | null;
   feel: 'liviano' | 'justo' | 'pesado' | null; segments: { label: string; min: number }[] | null;
   target: number | null; prev: { date: string; kg: string | null; reps: string } | null; rows: Row[];
 };
@@ -306,23 +306,24 @@ const kgTxt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 /** Aviso "▲ Toca subir" con las subas habituales: +0,5, +5 o +10 kg sobre el peso de la vez pasada. */
 function RaiseCard({ up, rows, onPick }: { up: NonNullable<RunnerItem['up']>; rows: Row[]; onPick: (kg: string) => void }) {
   const base = up.kg;
+  const down = up.dir === 'down';
   const current = rows.find((r) => !r.done)?.kg ?? rows[0]?.kg ?? '';
   return (
     <div className="card bg-venda" style={{ padding: '12px 14px', marginBottom: 8, gap: 10 }}>
       <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span className="strong brand" style={{ fontSize: 14 }}>▲ Toca subir el peso</span>
-        <span className="caption muted">{up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
+        <span className="strong brand" style={{ fontSize: 14 }}>{down ? '▼ Probá bajar un poco' : '▲ Toca subir el peso'}</span>
+        <span className="caption muted">{up.reason === 'pesado' ? 'La vez pasada te resultó pesado.' : up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
       </span>
       {base != null && base > 0 && (
-        <div role="group" aria-label="Cuánto subir" style={{ display: 'flex', gap: 8 }}>
-          {STEPS.map((st) => {
-            const kg = kgTxt(base + st);
+        <div role="group" aria-label={down ? 'Cuánto bajar' : 'Cuánto subir'} style={{ display: 'flex', gap: 8 }}>
+          {STEPS.filter((st) => !down || base - st > 0).map((st) => {
+            const kg = kgTxt(down ? base - st : base + st);
             const on = current.replace('.', ',') === kg;
             return (
               <button key={st} type="button" aria-pressed={on} onClick={() => onPick(on ? kgTxt(base) : kg)}
                 style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, padding: '6px 4px', border: 0, borderRadius: 4, cursor: 'pointer',
                   background: on ? 'var(--violeta)' : 'var(--lona)', color: on ? 'var(--on-violeta)' : 'var(--guante)', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
-                <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 15 }}>+{kgTxt(st)}</span>
+                <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 15 }}>{down ? '−' : '+'}{kgTxt(st)}</span>
                 <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{kg} kg</span>
               </button>
             );

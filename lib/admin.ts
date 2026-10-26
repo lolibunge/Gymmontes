@@ -35,9 +35,9 @@ export async function saveRoutine(userId: number, title: string, objective: stri
     let pos = 1;
     for (const it of d.items) {
       await q(
-        `insert into day_items (day_id, position, kind, exercise_id, sets, reps, weight_kg, note, segments)
-         values ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-        [dr!.id, pos++, it.kind, await exerciseId(it.name), it.sets, it.reps, it.weight, it.note, it.segments ? JSON.stringify(it.segments) : null]
+        `insert into day_items (day_id, position, kind, exercise_id, sets, reps, weight_kg, note, segments, raise_weight)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+        [dr!.id, pos++, it.kind, await exerciseId(it.name), it.sets, it.reps, it.weight, it.note, it.segments ? JSON.stringify(it.segments) : null, !!it.raise]
       );
     }
   }

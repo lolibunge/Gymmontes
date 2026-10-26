@@ -45,7 +45,7 @@ export default function Importer({ userId, defaultTitle, defaultObjective }: { u
                 <tbody>
                   {d.items.map((it, k) => (
                     <tr key={k} style={{ borderTop: k ? '1px solid var(--linea)' : 0 }}>
-                      <td style={{ padding: '6px 0' }}>{it.name}{it.note && <span className="muted"> · {it.note}</span>}</td>
+                      <td style={{ padding: '6px 0' }}>{it.name}{it.raise && <span className="brand strong"> ▲ subir</span>}{it.note && <span className="muted"> · {it.note}</span>}</td>
                       <td style={{ padding: '6px 0', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 700 }}>
                         {it.kind === 'cardio' ? `${(it.segments ?? []).reduce((a, s) => a + s.min, 0)}′ por tramos` : `${it.sets} × ${it.reps ?? '—'}`}
                       </td>

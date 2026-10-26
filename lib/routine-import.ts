@@ -12,6 +12,7 @@ export type ParsedItem = {
   weight: number | null;
   note: string | null;
   segments: { label: string; min: number }[] | null;
+  raise?: boolean;
 };
 export type ParsedDay = { weekday: number; title: string; subtitle: string | null; note: string | null; items: ParsedItem[] };
 export type ParseResult = { days: ParsedDay[]; warnings: string[] };
@@ -67,8 +68,18 @@ function num(v: string | undefined): number | null {
   return m ? Number(m[0]) : null;
 }
 
+function segLabel(raw: string): string {
+  const t = norm(raw.replace(/[.)]+$/, '')).replace(/^(de|a|al)\s+/, '').replace(/^ritmo\s+/, '');
+  if (!t) return 'Tramo';
+  if (t.startsWith('suave')) return 'Suave';
+  if (t.startsWith('moderad')) return 'Moderado';
+  if (t.startsWith('intens') || t.startsWith('fuerte') || t.startsWith('rapid')) return 'Intenso';
+  const clean = raw.replace(/[.)]+$/, '').replace(/^(de|a|al)\s+/i, '').replace(/^ritmo\s+/i, '').trim();
+  return clean.charAt(0).toUpperCase() + clean.slice(1);
+}
+
 export function parseSegments(v: string): { label: string; min: number }[] | null {
-  const parts = v.split(/[;+]|\n/).map((p) => p.trim()).filter(Boolean);
+  const parts = v.split(/[;+]|\n/).map((p) => p.trim().replace(/\.$/, '')).filter(Boolean);
   const out: { label: string; min: number }[] = [];
   for (const p of parts) {
     // "6 x (1 Intenso / 2 Suave)"
@@ -78,10 +89,11 @@ export function parseSegments(v: string): { label: string; min: number }[] | nul
       for (let k = 0; k < Number(rep[1]); k++) for (const s of inner) { const one = parseSegments(s); if (one) out.push(...one); }
       continue;
     }
-    const m = p.match(/(\d+(?:[.,]\d+)?)\s*(?:min|′|')?\s*(.*)/i);
+    // "18–20 min a ritmo moderado": con un rango se toma el número más alto.
+    const m = p.match(/(\d+(?:[.,]\d+)?)(?:\s*[–—-]\s*(\d+(?:[.,]\d+)?))?\s*(?:min(?:utos?)?|′|')?\s*(.*)/i);
     if (!m) continue;
-    const label = (m[2] || 'Tramo').replace(/^(de|a)\s+/i, '').trim();
-    out.push({ label: label.charAt(0).toUpperCase() + label.slice(1), min: Number(m[1].replace(',', '.')) });
+    const min = Number((m[2] ?? m[1]).replace(',', '.'));
+    out.push({ label: segLabel(m[3]), min });
   }
   return out.length ? out : null;
 }
@@ -93,7 +105,11 @@ export function parseRoutine(rows: string[][]): ParseResult {
   const idx: Record<string, number> = {};
   for (const [k, names] of Object.entries(COLS)) idx[k] = head.findIndex((h) => names.includes(h));
   if (idx.dia < 0 || idx.ejercicio < 0) {
-    return { days: [], warnings: ['No encontramos las columnas "Día" y "Ejercicio" en la primera fila. Usá la planilla modelo.'] };
+    if (rows.some((r) => r.some((c) => norm(c) === 'ejercicio'))) return parseTrainerSheet(rows);
+    if (rows.some((r) => r.some((c) => norm(c) === 'fecha'))) {
+      return { days: [], warnings: ['Ese link abre la pestaña del registro semanal. Abrí la pestaña con la rutina (la que tiene EJERCICIO, SERIES, REPETICIONES) y copiá el link de nuevo: cada pestaña tiene su propio link.'] };
+    }
+    return { days: [], warnings: ['No encontramos los ejercicios. La planilla tiene que tener una columna "Ejercicio" y los días (Lunes, Martes…), como la planilla modelo o la rutina de la entrenadora.'] };
   }
   const get = (r: string[], k: string) => (idx[k] >= 0 ? (r[idx[k]] ?? '').trim() : '');
   const byDay = new Map<number, ParsedDay>();
@@ -143,4 +159,107 @@ export function sheetsCsvUrl(link: string): string | null {
 
 export function slugify(name: string) {
   return norm(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || 'ejercicio';
+}
+
+// "TREN SUPERIOR A + CARDIO" → "Tren superior A + cardio" (la letra suelta antes de "+" o al final queda en mayúscula).
+const sentence = (t: string) =>
+  t === t.toUpperCase() ? (t.charAt(0) + t.slice(1).toLowerCase()).replace(/ ([a-zñ])(?= \+|$)/g, (_, l) => ` ${l.toUpperCase()}`) : t;
+const FULL_DAYS: Record<string, number> = { lunes: 1, martes: 2, miercoles: 3, jueves: 4, viernes: 5, sabado: 6, domingo: 7 };
+const CARDIO = /^(bicicleta|bici|cinta|caminadora|eliptica|eliptico|escaladora|remo ergometro|spinning|cardio)\b/;
+
+/**
+ * Formato de la entrenadora (como el PDF de GYM MONTES pasado a Google Sheets):
+ *   01 | LUNES                       ← empieza un día
+ *   CUÁDRICEPS + PECHO Y ESPALDA     ← enfoque
+ *   EJERCICIO | | SERIES | REPETICIONES | PESO (KG) | ¿RANGO ALTO? | PRÓXIMA VEZ
+ *   Sentadilla en hack | | 3 | 8–10 | 60.0 | No | Mantener
+ *   BICICLETA · 26–28 MIN             ← cardio
+ *   5 min suaves + 18–20 min a ritmo moderado + 3 min suaves.   ← tramos
+ *   *Nota del día
+ * Se corta en "INDICACIONES PARA ENTRENAR".
+ */
+function parseTrainerSheet(rows: string[][]): ParseResult {
+  const warnings: string[] = [];
+  const days: ParsedDay[] = [];
+  let day: ParsedDay | null = null;
+  let col: Record<string, number> | null = null;
+  let pendingCardio: ParsedItem | null = null;
+  const addNote = (d: ParsedDay, t: string) => { d.note = d.note ? `${d.note} ${t}` : t; };
+
+  for (const r of rows) {
+    const cells = r.map((c) => c.trim());
+    const filled = cells.filter(Boolean);
+    const n = filled.map(norm);
+    if (!filled.length) continue;
+    if (n.some((c) => c.startsWith('indicaciones para entrenar'))) break;
+
+    // Encabezado de día: "01 | LUNES" o "LUNES" solo.
+    const dayCell = n.find((c) => FULL_DAYS[c.replace(/^\d+\s*/, '')]);
+    if (dayCell && filled.length <= 2) {
+      const wd = FULL_DAYS[dayCell.replace(/^\d+\s*/, '')];
+      day = { weekday: wd, title: TITLES[wd], subtitle: null, note: null, items: [] };
+      days.push(day);
+      col = null; pendingCardio = null;
+      continue;
+    }
+    if (!day) continue;
+
+    // Fila de títulos de columnas.
+    const ej = n.indexOf('ejercicio');
+    if (ej >= 0) {
+      const find = (f: (h: string) => boolean) => cells.findIndex((c) => f(norm(c)));
+      col = {
+        ejercicio: cells.findIndex((c) => norm(c) === 'ejercicio'),
+        series: find((h) => h === 'series' || h === 'sets'),
+        reps: find((h) => h.startsWith('repeticiones') || h === 'reps'),
+        peso: find((h) => h.startsWith('peso') || h === 'kg' || h === 'carga'),
+        alto: find((h) => h.includes('rango alto')),
+        proxima: find((h) => h.includes('proxima')),
+      };
+      continue;
+    }
+
+    // Una sola celda: enfoque, cardio, tramos o nota.
+    if (filled.length === 1) {
+      const t = filled[0];
+      const tn = n[0];
+      if (CARDIO.test(tn)) {
+        const name = t.split(/[·•\-–—(]/)[0].trim();
+        pendingCardio = { kind: 'cardio', name: name.charAt(0) + name.slice(1).toLowerCase(), sets: null, reps: null, weight: null, note: null, segments: null };
+        day.items.push(pendingCardio);
+        const total = tn.match(/(\d+)(?:\s*[–—-]\s*(\d+))?\s*min/);
+        if (total) pendingCardio.segments = [{ label: 'Moderado', min: Number(total[2] ?? total[1]) }];
+        continue;
+      }
+      if (pendingCardio && /\d/.test(t) && /min/i.test(t)) {
+        const segs = parseSegments(t);
+        if (segs) pendingCardio.segments = segs;
+        else warnings.push(`No pudimos leer los tramos "${t}"; quedó el tiempo total.`);
+        pendingCardio.note = t;
+        pendingCardio = null;
+        continue;
+      }
+      pendingCardio = null;
+      if (!col && !day.subtitle) { day.subtitle = sentence(t.replace(/\s{2,}/g, ' ')); continue; }
+      addNote(day, t);
+      continue;
+    }
+
+    // Fila de ejercicio.
+    if (!col) continue;
+    const raw = cells[col.ejercicio] ?? '';
+    if (!raw) continue;
+    // "Peso muerto rumano*": el asterisco remite a la nota del día.
+    const name = raw.replace(/\s*\*+$/, '');
+    const starNote = name !== raw ? 'Ver la nota del día' : null;
+    const get = (k: string) => (col![k] >= 0 ? cells[col![k]] ?? '' : '');
+    const sets = num(get('series'));
+    if (sets === null) warnings.push(`${day.title}: "${name}" no tiene series; se toma 3.`);
+    const raise = norm(get('alto')) === 'si' || norm(get('proxima')).includes('subir');
+    day.items.push({ kind: 'ejercicio', name, sets: sets ?? 3, reps: get('reps') || null, weight: num(get('peso')), note: starNote, segments: null, raise });
+    pendingCardio = null;
+  }
+  const out = days.filter((d) => d.items.length);
+  if (!out.length) warnings.unshift('No encontramos ejercicios debajo de los días.');
+  return { days: out, warnings };
 }

@@ -2,25 +2,56 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { one } from '@/lib/db';
-import { checkPin, COOKIE, sign } from '@/lib/auth';
+import { checkPin, COOKIE, hashPassword, setSession } from '@/lib/auth';
 
-export type LoginState = { error?: string };
+export type FormState = { error?: string; field?: string };
 
-export async function login(_prev: LoginState, form: FormData): Promise<LoginState> {
+const NOT_CONNECTED = 'La app todavía no está conectada a la base de datos. Revisá DATABASE_URL en Vercel.';
+const safeNext = (n: string) => (n.startsWith('/') && !n.startsWith('//') ? n : '/');
+
+export async function login(_prev: FormState, form: FormData): Promise<FormState> {
   const email = String(form.get('email') || '').trim().toLowerCase();
-  const pin = String(form.get('pin') || '').trim();
+  const password = String(form.get('password') || '');
   const next = String(form.get('next') || '/');
-  if (!email || !pin) return { error: 'Completá tu email y tu PIN.' };
-  let u: { id: number; pin_hash: string } | null;
+  if (!email || !password) return { error: 'Completá tu email y tu contraseña.' };
+  let u: { id: number; pin_hash: string; auth_provider: string } | null;
   try {
-    u = await one<{ id: number; pin_hash: string }>('select id, pin_hash from users where email = $1', [email]);
+    u = await one('select id, pin_hash, auth_provider from users where email = $1', [email]);
   } catch (e) {
     console.error('[login]', e);
-    return { error: 'La app todavía no está conectada a la base de datos. Revisá DATABASE_URL en Vercel.' };
+    return { error: NOT_CONNECTED };
   }
-  if (!u || !checkPin(pin, u.pin_hash)) return { error: 'El email o el PIN no coinciden.' };
-  cookies().set(COOKIE, sign(u.id), { httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 180 });
-  redirect(next.startsWith('/') && !next.startsWith('//') ? next : '/');
+  if (u && u.auth_provider === 'google' && !u.pin_hash) return { error: 'Esta cuenta se creó con Google. Tocá "Continuar con Google".' };
+  if (!u || !checkPin(password, u.pin_hash)) return { error: 'El email o la contraseña no coinciden.' };
+  setSession(u.id);
+  redirect(safeNext(next));
+}
+
+export async function register(_prev: FormState, form: FormData): Promise<FormState> {
+  const name = String(form.get('name') || '').trim();
+  const email = String(form.get('email') || '').trim().toLowerCase();
+  const password = String(form.get('password') || '');
+  const code = String(form.get('code') || '').trim();
+  if (!name) return { error: 'Escribí tu nombre.', field: 'name' };
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return { error: 'Revisá el email.', field: 'email' };
+  if (password.length < 8) return { error: 'La contraseña tiene que tener al menos 8 caracteres.', field: 'password' };
+  const gymCode = process.env.GYM_CODE;
+  if (gymCode && code.toLowerCase() !== gymCode.toLowerCase()) return { error: 'El código del gimnasio no es correcto. Pedíselo a la entrenadora.', field: 'code' };
+  let id: number;
+  try {
+    const exists = await one('select id from users where email = $1', [email]);
+    if (exists) return { error: 'Ya hay una cuenta con ese email. Probá ingresar.', field: 'email' };
+    const r = await one<{ id: number }>(
+      `insert into users (name, email, pin_hash, auth_provider) values ($1,$2,$3,'password') returning id`,
+      [name, email, hashPassword(password)]
+    );
+    id = r!.id;
+  } catch (e) {
+    console.error('[registro]', e);
+    return { error: NOT_CONNECTED };
+  }
+  setSession(id);
+  redirect('/?bienvenida=1');
 }
 
 export async function logout() {

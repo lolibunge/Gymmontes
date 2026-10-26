@@ -76,7 +76,7 @@ p { margin: 0; }
 
 /* Campos */
 .field { display: flex; flex-direction: column; gap: 6px; }
-.field > span { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--campana); text-transform: uppercase; }
+.field > span:first-child { font-size: 12px; font-weight: 600; letter-spacing: 0.08em; color: var(--campana); text-transform: uppercase; }
 .input { height: 48px; padding: 0 14px; border: 0; border-radius: 4px; background: var(--cuerda); color: var(--guante); font-size: 16px; width: 100%; }
 textarea.input { height: auto; padding: 14px; line-height: 21px; resize: none; }
 .input:focus { outline: 2px solid var(--guante); outline-offset: 0; }

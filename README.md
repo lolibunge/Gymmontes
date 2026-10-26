@@ -11,15 +11,32 @@ Hecha con Next.js 14 y Postgres (Neon), lista para publicar en Vercel.
    - `DATABASE_URL`: la cadena de conexión de Neon. Si conectás Neon desde la pestaña **Storage** del proyecto, Vercel la carga sola.
    - `AUTH_SECRET`: un texto largo y secreto cualquiera (firma las sesiones de login).
    - `NEXT_PUBLIC_SPOTIFY_PLAYLIST` (opcional): el link de la playlist del gimnasio en Spotify.
-   - `DEMO_PIN` y `OWNER_PIN` (opcionales): los PIN de las cuentas de ejemplo. Si no se cargan, son `1234` y `4321`.
+   - `DEMO_PIN` y `OWNER_PIN` (opcionales): las contraseñas de las cuentas de ejemplo. Si no se cargan, son `1234` y `4321`.
+   - `GYM_CODE` (opcional): si se carga, para crear una cuenta hay que escribir este código (lo da la entrenadora en recepción). Si no, el registro es libre.
+   - `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (opcionales): activan "Continuar con Google". Ver más abajo.
+   - `APP_URL` (opcional): la dirección pública, por ejemplo `https://gymmontes.vercel.app`. Se usa para volver desde Google.
 3. **Deploy.** En cada build, `scripts/db.mjs` crea las tablas si no existen y, si la base está vacía, carga los datos de ejemplo.
 
 ## Cuentas de ejemplo
 
-| Usuario | Email | PIN |
+| Usuario | Email | Contraseña |
 |---|---|---|
 | Loli (socia, con su rutina real de 5 días) | `loli@gymmontes.uy` | `DEMO_PIN` o `1234` |
 | Dueña | `duena@gymmontes.uy` | `OWNER_PIN` o `4321` |
+
+## Crear cuenta
+
+Los socios crean su cuenta en `/registro` con nombre, email y contraseña (mínimo 8 caracteres), o con **Continuar con Google**. Una cuenta nueva arranca sin rutina y el Inicio la invita a pedirla.
+
+### Activar "Continuar con Google"
+
+1. Entrá a [Google Cloud Console](https://console.cloud.google.com/) y creá un proyecto (por ejemplo "GYM MONTES").
+2. **APIs y servicios → Pantalla de consentimiento de OAuth**: tipo *Externo*, nombre "GYM MONTES", tu email de soporte. Publicala.
+3. **APIs y servicios → Credenciales → Crear credenciales → ID de cliente de OAuth**, tipo *Aplicación web*.
+4. En **URI de redireccionamiento autorizados** agregá `https://gymmontes.vercel.app/api/auth/google/callback`.
+5. Copiá el *ID de cliente* y el *Secreto* a Vercel como `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`, cargá `APP_URL=https://gymmontes.vercel.app` y hacé Redeploy.
+
+Hasta que estén cargadas, el botón de Google no aparece.
 
 ## Instalar en el celular
 
@@ -41,7 +58,7 @@ npm run dev
 
 ## Estructura
 
-- `app/login`: ingreso con email y PIN.
+- `app/login` y `app/registro`: ingreso y creación de cuenta (email y contraseña, o Google en `app/api/auth/google`).
 - `app/(app)`: pantallas con menú inferior (Inicio, Rutina, Sesión, Pedir, Perfil, Historial, Comunidad, Escanear).
 - `app/timer`: timer de cardio por tramos (pantalla completa).
 - `app/ejercicio` y `app/m`: ficha de máquina y redirección desde el QR.

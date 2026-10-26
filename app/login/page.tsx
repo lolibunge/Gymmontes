@@ -1,29 +1,32 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { currentUser } from '@/lib/auth';
+import { currentUser, googleEnabled } from '@/lib/auth';
+import AuthShell, { Divider, GoogleButton } from '@/components/AuthShell';
 import LoginForm from './LoginForm';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage({ searchParams }: { searchParams: { next?: string } }) {
+const ERRORS: Record<string, string> = {
+  google: 'No pudimos entrar con Google. Probá de nuevo.',
+  'google-off': 'El ingreso con Google todavía no está activado.',
+};
+
+export default async function LoginPage({ searchParams }: { searchParams: { next?: string; error?: string } }) {
   if (await currentUser()) redirect('/');
+  const next = searchParams.next || '/';
   return (
-    <div className="t-oscuro" style={{ minHeight: '100dvh', background: '#080808', color: 'var(--guante)' }}>
-      <main className="app" style={{ background: '#080808', padding: 'calc(24px + env(safe-area-inset-top)) 24px 32px', gap: 24, justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 12 }}>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.jpg" alt="GYM MONTES" width={260} height={260} style={{ width: 260, height: 260, objectFit: 'contain', mixBlendMode: 'lighten' }} />
-        </div>
-        <section style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-            <h1 className="title-lg" style={{ color: '#f5f5f5' }}>Entrá a tu rutina</h1>
-            <p className="muted">Usá el email que diste en recepción y tu PIN.</p>
-          </div>
-          <LoginForm next={searchParams.next || '/'} />
-          <p className="caption muted" style={{ textAlign: 'center' }}>
-            ¿Todavía no tenés usuario o te olvidaste el PIN? Pedíselo a la entrenadora en recepción.
-          </p>
-        </section>
-      </main>
-    </div>
+    <AuthShell>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <h1 className="title-lg" style={{ color: '#f5f5f5' }}>Entrá a tu rutina</h1>
+        <p className="muted">Ingresá con tu cuenta de GYM MONTES.</p>
+      </div>
+      {searchParams.error && ERRORS[searchParams.error] && <p role="alert" style={{ color: 'var(--alerta)', fontSize: 14, fontWeight: 600 }}>{ERRORS[searchParams.error]}</p>}
+      {googleEnabled() && (<><GoogleButton next={next} /><Divider /></>)}
+      <LoginForm next={next} />
+      <p style={{ textAlign: 'center', fontSize: 15 }}>
+        <span className="muted">¿Primera vez? </span><Link href="/registro" className="link" style={{ fontSize: 15 }}>Creá tu cuenta</Link>
+      </p>
+      <p className="caption muted" style={{ textAlign: 'center' }}>¿Te olvidaste la contraseña? Pedí que te la reinicien en recepción.</p>
+    </AuthShell>
   );
 }

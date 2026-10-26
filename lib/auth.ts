@@ -25,6 +25,25 @@ function verify(token: string | undefined): number | null {
   return Number(id);
 }
 
+export function hashPassword(pw: string): string {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return `${salt}:${crypto.scryptSync(pw, salt, 32).toString('hex')}`;
+}
+
+export function setSession(userId: number) {
+  cookies().set(COOKIE, sign(userId), {
+    httpOnly: true, sameSite: 'lax', secure: process.env.NODE_ENV === 'production', path: '/', maxAge: 60 * 60 * 24 * 180,
+  });
+}
+
+export function appOrigin(req: { nextUrl: { origin: string } }) {
+  return process.env.APP_URL?.replace(/\/$/, '') || req.nextUrl.origin;
+}
+
+export function googleEnabled() {
+  return Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET);
+}
+
 export function checkPin(pin: string, stored: string): boolean {
   const [salt, hash] = stored.split(':');
   if (!salt || !hash) return false;

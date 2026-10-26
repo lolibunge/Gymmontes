@@ -41,8 +41,8 @@ export default async function Inicio() {
       )}
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p className="muted">Hola {user.name}, {hoy ? (yaHoy ? 'ya entrenaste hoy' : 'hoy te toca') : 'hoy descansás. Lo próximo es'}</p>
-        <h1 className="display">{plan ? DIAS[plan.weekday] : 'Sin rutina'}</h1>
+        <p className="muted">Hola {user.name}, {!plan ? 'te damos la bienvenida a GYM MONTES' : hoy ? (yaHoy ? 'ya entrenaste hoy' : 'hoy te toca') : 'hoy descansás. Lo próximo es'}</p>
+        <h1 className="display" style={!plan ? { fontSize: 44, lineHeight: '42px' } : undefined}>{plan ? DIAS[plan.weekday] : 'Empecemos'}</h1>
         {plan?.subtitle && <p className="label brand" style={{ fontSize: 13, letterSpacing: '0.1em' }}>{plan.subtitle}</p>}
       </section>
 
@@ -64,10 +64,12 @@ export default async function Inicio() {
           </div>
         </section>
       ) : (
-        <Link href="/pedir" className="card bg-venda" style={{ color: 'var(--guante)' }}>
-          <span className="strong">Todavía no tenés rutina asignada.</span>
-          <span className="link">Pedí tu rutina</span>
-        </Link>
+        <section className="card bg-esquina" style={{ gap: 14, padding: 20 }}>
+          <span className="label" style={{ color: '#d69ae8' }}>Paso 1</span>
+          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Pedí tu rutina</span>
+          <span className="caption" style={{ color: '#bdbdbd' }}>Contale a la entrenadora qué buscás y cuántos días podés venir. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
+          <Link href="/pedir" className="btn btn-primary">Pedir rutina <Arrow /></Link>
+        </section>
       )}
 
       {days.length > 0 && (

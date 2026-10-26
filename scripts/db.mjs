@@ -84,6 +84,12 @@ create table if not exists set_logs (
   done boolean not null default false,
   unique (session_id, item_id, set_no)
 );
+create table if not exists set_feel (
+  session_id int not null references sessions(id) on delete cascade,
+  item_id int not null references day_items(id) on delete cascade,
+  feel text not null check (feel in ('liviano','justo','pesado')),
+  primary key (session_id, item_id)
+);
 create table if not exists memberships (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,

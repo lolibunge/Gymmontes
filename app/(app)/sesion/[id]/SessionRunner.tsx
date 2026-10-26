@@ -3,13 +3,15 @@ import Link from 'next/link';
 import { useEffect, useRef, useState, useTransition } from 'react';
 import { bell } from '@/lib/bell';
 import { Back, Check, Chevron, Music } from '@/components/Icons';
-import { fillPlanned, finishSession, saveSet } from '../actions';
+import { fillPlanned, finishSession, saveFeel, saveSet } from '../actions';
 import { corta } from '@/lib/dates';
 
 type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
 export type RunnerItem = {
   id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; sets: number; reps: string | null;
-  note: string | null; rest: number; raise: boolean; segments: { label: string; min: number }[] | null;
+  note: string | null; rest: number; raise: boolean;
+  up: { reason: 'planilla' | 'reps' | 'liviano'; kg: number | null; next: number | null } | null;
+  feel: 'liviano' | 'justo' | 'pesado' | null; segments: { label: string; min: number }[] | null;
   target: number | null; prev: { date: string; kg: string | null; reps: string } | null; rows: Row[];
 };
 
@@ -94,7 +96,24 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
 
       {it.kind === 'ejercicio' ? (
         <section>
-          {it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">{timedRange(it.reps) ? `▲ Hoy probá con ${timedRange(it.reps)![1]} segundos.` : '▲ Llegaste al rango alto: hoy probá con más peso.'}</span></p>}
+          {timedRange(it.reps) ? (
+            it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">▲ Hoy probá con {timedRange(it.reps)![1]} segundos.</span></p>
+          ) : it.up && (
+            <div className="card bg-venda" style={{ padding: '12px 14px', marginBottom: 8, gap: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span className="strong brand" style={{ fontSize: 14 }}>▲ Toca subir el peso</span>
+                <span className="caption muted">{it.up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : it.up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
+              </span>
+              {it.up.next != null && (
+                it.rows.some((r) => !r.done && num(r.kg) !== it.up!.next)
+                  ? <button type="button" className="btn btn-primary" style={{ width: 'auto', minHeight: 40, padding: '0 12px', fontSize: 13, flex: '0 0 auto', whiteSpace: 'nowrap', justifyContent: 'center' }}
+                      onClick={() => it.rows.forEach((r, j) => { if (!r.done) update(j, { kg: String(it.up!.next).replace('.', ',') }); })}>
+                      Usar {String(it.up.next).replace('.', ',')} kg
+                    </button>
+                  : <span className="strong brand" style={{ fontSize: 13, flexShrink: 0 }}>{String(it.up.next).replace('.', ',')} kg ✓</span>
+              )}
+            </div>
+          )}
           {it.prev ? (
             <div className="row bg-venda" style={{ padding: '12px 14px', borderRadius: 4, fontSize: 13, color: 'var(--violeta-texto)' }}>
               <span>La vez pasada ({corta(it.prev.date)})</span>
@@ -144,6 +163,10 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
               </div>
             );
           })}
+              <FeelPicker value={it.feel} onChange={(f) => {
+                setItems((prev) => prev.map((x, k) => (k === i ? { ...x, feel: f } : x)));
+                startT(() => { saveFeel(sessionId, it.id, f).catch(() => {}); });
+              }} />
             </>
           )}
         </section>
@@ -263,5 +286,29 @@ function TimedSets({ rows, activeRow, update }: { rows: Row[]; activeRow: number
       })}
       <p className="caption muted" style={{ paddingTop: 6 }}>Tocá ▶ y mantené la posición. Suena la campana al terminar y la serie se marca sola. Si parás antes, se guardan los segundos que aguantaste.</p>
     </>
+  );
+}
+
+const FEELS: { v: 'liviano' | 'justo' | 'pesado'; label: string }[] = [
+  { v: 'liviano', label: 'Liviano' }, { v: 'justo', label: 'Justo' }, { v: 'pesado', label: 'Pesado' },
+];
+
+/** "¿Cómo te resultó el peso?": si marca Liviano, la próxima vez la app sugiere subir. */
+function FeelPicker({ value, onChange }: { value: 'liviano' | 'justo' | 'pesado' | null; onChange: (v: 'liviano' | 'justo' | 'pesado' | null) => void }) {
+  return (
+    <div role="group" aria-label="¿Cómo te resultó el peso?" style={{ display: 'flex', alignItems: 'center', gap: 8, paddingTop: 12, flexWrap: 'wrap' }}>
+      <span className="caption muted" style={{ width: '100%' }}>¿Cómo te resultó el peso?</span>
+      {FEELS.map((f) => {
+        const on = value === f.v;
+        return (
+          <button key={f.v} type="button" aria-pressed={on} onClick={() => onChange(on ? null : f.v)}
+            style={{ flex: 1, height: 38, padding: '0 12px', border: 0, borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              background: on ? (f.v === 'liviano' ? 'var(--violeta)' : 'var(--guante)') : 'var(--cuerda)',
+              color: on ? (f.v === 'liviano' ? 'var(--on-violeta)' : 'var(--lona)') : 'var(--guante)' }}>
+            {f.v === 'liviano' && on ? '▲ ' : ''}{f.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }

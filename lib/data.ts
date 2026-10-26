@@ -149,3 +149,56 @@ export async function stats(userId: number) {
   );
   return { total: total?.n ?? 0, streak, toRaise: up?.n ?? 0 };
 }
+
+export type Raise = { reason: 'planilla' | 'reps' | 'liviano'; kg: number | null; next: number | null };
+
+/** Rango "8–12" → [8, 12]. Null si es por tiempo o no tiene números. */
+export function repRange(reps: string | null): [number, number] | null {
+  if (!reps || /\d\s*(s|seg|segundos?|″|")\s*$/i.test(reps.trim())) return null;
+  const n = (reps.match(/\d+/g) ?? []).map(Number);
+  return n.length ? [n[0], n[n.length - 1]] : null;
+}
+
+/** Cuánto subir: 1 kg en cargas chicas (mancuernas livianas), 2,5 kg en el resto. */
+export const nextKg = (kg: number) => kg + (kg < 10 ? 1 : 2.5);
+
+/**
+ * Para cada ejercicio, si toca subir el peso y por qué:
+ * - la planilla lo marca (▲ / ¿Rango alto? = Sí),
+ * - la última vez llegó al tope de reps en todas las series,
+ * - o la última vez marcó que le resultó liviano.
+ */
+export async function raiseSignals(userId: number, items: Item[], upTo?: string, excludeSession?: number): Promise<Map<number, Raise>> {
+  const out = new Map<number, Raise>();
+  const ex = items.filter((i) => i.kind === 'ejercicio');
+  if (!ex.length) return out;
+  const last = await q<{ exercise_id: number; session_id: number }>(
+    `select distinct on (i.exercise_id) i.exercise_id, s.id as session_id
+       from set_logs l join sessions s on s.id = l.session_id join day_items i on i.id = l.item_id
+      where s.user_id = $1 and l.done and i.exercise_id = any($2) and s.id <> coalesce($3, -1)
+        and ($4::date is null or s.date <= $4::date)
+      order by i.exercise_id, s.date desc, s.id desc`,
+    [userId, ex.map((i) => i.exercise_id), excludeSession ?? null, upTo ?? null]
+  );
+  const sets = last.length ? await q<{ exercise_id: number; kg: string | null; reps: number | null }>(
+    `select i.exercise_id, l.kg::text as kg, l.reps from set_logs l join day_items i on i.id = l.item_id
+      where l.done and (l.session_id, i.exercise_id) in (select * from unnest($1::int[], $2::int[]))`,
+    [last.map((l) => l.session_id), last.map((l) => l.exercise_id)]
+  ) : [];
+  const feels = last.length ? await q<{ exercise_id: number; feel: string }>(
+    `select i.exercise_id, f.feel from set_feel f join day_items i on i.id = f.item_id
+      where (f.session_id, i.exercise_id) in (select * from unnest($1::int[], $2::int[]))`,
+    [last.map((l) => l.session_id), last.map((l) => l.exercise_id)]
+  ) : [];
+  for (const it of ex) {
+    const mine = sets.filter((x) => x.exercise_id === it.exercise_id);
+    const kgs = mine.map((x) => Number(x.kg)).filter((x) => x > 0);
+    const kg = kgs.length ? Math.max(...kgs) : it.weight_kg != null ? Number(it.weight_kg) : null;
+    const range = repRange(it.reps);
+    const top = !!range && mine.length >= (it.sets ?? 1) && mine.every((x) => (x.reps ?? 0) >= range[1]);
+    const light = feels.some((f) => f.exercise_id === it.exercise_id && f.feel === 'liviano');
+    const reason = light ? 'liviano' : top ? 'reps' : it.raise_weight ? 'planilla' : null;
+    if (reason) out.set(it.id, { reason, kg, next: kg != null && kg > 0 ? nextKg(kg) : null });
+  }
+  return out;
+}

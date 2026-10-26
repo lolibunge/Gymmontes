@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { minutes, todaysPlan, weightLabel } from '@/lib/data';
+import { minutes, raiseSignals, todaysPlan, weightLabel } from '@/lib/data';
 import { DIAS, DIAS_CORTO, addDays, corta, dia2, today, weekdayOf } from '@/lib/dates';
 import { Arrow, Back, Check, Chevron, Music } from '@/components/Icons';
 import { q } from '@/lib/db';
@@ -54,6 +54,7 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
     else hecho.push({ name: l.name, kind: l.kind, kg: l.kg, reps: [l.reps], minutes: l.minutes });
   }
   const doneDay = doneDates.has(date);
+  const ups = await raiseSignals(user.id, day.items, isPast ? addDays(date, -1) : undefined);
   const weekLabel = offset === 0 ? 'Esta semana' : offset === -1 ? 'Semana pasada' : offset === 1 ? 'Semana que viene' : `Semana del ${corta(monday)}`;
   const href = (m: string, d?: number) => `/rutina?semana=${m}${d ? `&dia=${d}` : ''}`;
   const ejercicios = day.items.filter((i) => i.kind === 'ejercicio');
@@ -128,7 +129,7 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
             <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span className="strong" style={{ lineHeight: '19px' }}>{e.name}</span>
               {e.note && <span className="caption muted">{e.note}</span>}
-              {e.raise_weight && <span className="brand" style={{ fontSize: 12, fontWeight: 700 }}>▲ Hoy subí el peso</span>}
+              {ups.get(e.id) && <span className="brand" style={{ fontSize: 12, fontWeight: 700 }}>▲ Toca subir{ups.get(e.id)!.next != null ? ` a ${weightLabel(String(ups.get(e.id)!.next))}` : ' el peso'}</span>}
             </span>
             <span style={{ width: 70, textAlign: 'right', fontFamily: 'var(--font-archivo)', fontWeight: 700, fontSize: 14 }}>{e.sets} × {e.reps}</span>
             <span style={{ width: 58, textAlign: 'right', fontSize: 14 }} className="muted">{weightLabel(e.weight_kg)}</span>

@@ -105,3 +105,14 @@ export async function fillPlanned(form: FormData) {
   }
   redirect(`/sesion/${s.id}?paso=0`);
 }
+
+export async function saveFeel(sessionId: number, itemId: number, feel: 'liviano' | 'justo' | 'pesado' | null) {
+  const user = await requireUser();
+  if (!(await ownSession(user.id, sessionId))) throw new Error('Sesión no encontrada');
+  if (!feel) { await q('delete from set_feel where session_id = $1 and item_id = $2', [sessionId, itemId]); return; }
+  await q(
+    `insert into set_feel (session_id, item_id, feel) values ($1,$2,$3)
+     on conflict (session_id, item_id) do update set feel = excluded.feel`,
+    [sessionId, itemId, feel]
+  );
+}

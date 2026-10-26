@@ -40,7 +40,7 @@ export default async function Ficha({ params }: { params: { slug: string } }) {
         ) : video?.kind === 'file' ? (
           <video src={video.src} controls playsInline style={{ width: '100%', borderRadius: 4, margin: '16px 0' }} />
         ) : video?.kind === 'link' ? (
-          <a href={video.src} target="_blank" rel="noopener" className="btn btn-primary" style={{ margin: '24px 0', justifyContent: 'center' }}>Ver el video en {video.host} ▶</a>
+          <a href={video.src} target="_blank" rel="noopener" className="btn btn-primary" style={{ margin: '24px 0', justifyContent: 'center' }}>{video.src.includes('/results?') ? 'Ver videos de cómo se hace' : `Ver el video en ${video.host}`} ▶</a>
         ) : (
           <p style={{ alignSelf: 'center', textAlign: 'center', fontSize: 13, color: '#bdbdbd', padding: '24px 0' }}>Acá va el video de la máquina<br />(lo sube la entrenadora)</p>
         )}

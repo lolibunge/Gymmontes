@@ -13,6 +13,6 @@ export function videoFor(url: string | null): VideoKind | null {
   if (h === 'youtu.be') id = u.pathname.slice(1).split('/')[0] || null;
   if (id && /^[\w-]{6,}$/.test(id)) return { kind: 'youtube', src: `https://www.youtube-nocookie.com/embed/${id}?rel=0&playsinline=1` };
   if (/\.(mp4|webm|mov)$/i.test(u.pathname)) return { kind: 'file', src: u.toString() };
-  const host = h.includes('instagram') ? 'Instagram' : h.includes('drive.google') ? 'Google Drive' : h.includes('tiktok') ? 'TikTok' : h;
+  const host = h.includes('youtube') ? 'YouTube' : h.includes('instagram') ? 'Instagram' : h.includes('drive.google') ? 'Google Drive' : h.includes('tiktok') ? 'TikTok' : h;
   return { kind: 'link', src: u.toString(), host };
 }

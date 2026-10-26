@@ -2,12 +2,14 @@ import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
 import { addDays, corta, mesLargo, today } from '@/lib/dates';
-import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge } from '../actions';
+import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge, saveCobros } from '../actions';
+import { METHOD_LABEL, paySettings, pendingPayments } from '@/lib/payments';
+import PaymentCard from '../PaymentCard';
 
-const TABS = ['novedades', 'reto', 'sorteo'] as const;
-const LABEL: Record<string, string> = { novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
+const TABS = ['cobros', 'novedades', 'reto', 'sorteo'] as const;
+const LABEL: Record<string, string> = { cobros: 'Cobros', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
 
-export default async function Gym({ searchParams }: { searchParams: { tab?: string } }) {
+export default async function Gym({ searchParams }: { searchParams: { tab?: string; guardado?: string; error?: string } }) {
   await requireOwner();
   const tab = (TABS as readonly string[]).includes(searchParams.tab ?? '') ? searchParams.tab! : 'novedades';
   const t = today();
@@ -25,6 +27,7 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
               boxShadow: tab === k ? 'inset 0 0 0 1.5px var(--linea)' : 'none' }}>{LABEL[k]}</Link>
         ))}
       </nav>
+      {tab === 'cobros' && <Cobros guardado={!!searchParams.guardado} error={searchParams.error} />}
       {tab === 'novedades' && <Novedades />}
       {tab === 'reto' && <Reto mes={mes} next={next} />}
       {tab === 'sorteo' && <Sorteo hoy={t} />}
@@ -133,6 +136,64 @@ async function Sorteo({ hoy }: { hoy: string }) {
           <label className="field"><span>Cierra el</span><input className="input" type="date" name="closes_on" required min={hoy} /></label>
           <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>Abrir sorteo</button>
         </form>
+      )}
+    </>
+  );
+}
+
+async function Cobros({ guardado, error }: { guardado: boolean; error?: string }) {
+  const [cfg, pend, recent] = await Promise.all([
+    paySettings(), pendingPayments(),
+    q<{ id: number; name: string; method: string; paid_on: string; status: string }>(
+      `select p.id, u.name, p.method, to_char(p.paid_on,'YYYY-MM-DD') as paid_on, p.status from payment_reports p join users u on u.id = p.user_id
+        where p.status in ('confirmado','rechazado') order by p.reviewed_at desc limit 8`),
+  ]);
+  return (
+    <>
+      <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <h2 className="label">Pagos para confirmar</h2>
+        {pend.length === 0 && <p className="caption muted">Nadie avisó un pago todavía. Cuando un socio toque "Ya transferí" o "Ya pagué", aparece acá.</p>}
+        {pend.map((p) => <PaymentCard key={p.id} p={p} back="/admin/gym?tab=cobros" />)}
+      </section>
+
+      <form action={saveCobros} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 12 }}>
+        <div className="row" style={{ alignItems: 'baseline' }}>
+          <h2 className="label">Cómo cobrás</h2>
+          {guardado && <span className="caption brand strong">Guardado</span>}
+        </div>
+        <label className="field"><span>Cuota mensual</span>
+          <input className="input" name="fee" defaultValue={cfg.fee} placeholder="Ej.: $ 1.800" />
+        </label>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 15, fontWeight: 600 }}>
+          <input type="checkbox" name="cash" defaultChecked={cfg.cash} style={{ width: 20, height: 20 }} /> Efectivo en recepción
+        </label>
+        <label className="field"><span>Aclaración del efectivo (opcional)</span>
+          <input className="input" name="cash_note" defaultValue={cfg.cashNote} placeholder="Ej.: de lunes a viernes de 7 a 21 h" />
+        </label>
+        <label className="field"><span>Datos para transferencia</span>
+          <textarea className="input" name="bank" rows={4} defaultValue={cfg.bank} placeholder={'Banco: BROU\nCuenta: 000000000-00000\nTitular: ...\nEn el concepto poné tu nombre'} />
+        </label>
+        <label className="field"><span>Link de cobro de Mercado Pago</span>
+          <input className="input" name="mp_link" defaultValue={cfg.mpLink} placeholder="https://mpago.la/…" inputMode="url" />
+        </label>
+        {error === 'link' && <p className="caption" style={{ color: 'var(--alerta)' }}>El link tiene que empezar con https://</p>}
+        <p className="caption muted">El link lo creás en tu cuenta de Mercado Pago (cobrar con link de pago, por el monto de la cuota). Lo que dejes vacío no aparece para los socios.</p>
+        <button className="btn btn-primary" style={{ justifyContent: 'center' }}>Guardar</button>
+      </form>
+
+      {recent.length > 0 && (
+        <section>
+          <h2 className="label" style={{ paddingBottom: 6 }}>Últimos revisados</h2>
+          {recent.map((r) => (
+            <div key={r.id} className="list-row">
+              <span style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="strong">{r.name}</span>
+                <span className="caption muted">{METHOD_LABEL[r.method]} · {corta(r.paid_on)}</span>
+              </span>
+              <span className="badge" style={{ background: 'var(--cuerda)', color: r.status === 'confirmado' ? 'var(--guante)' : 'var(--alerta)' }}>{r.status === 'confirmado' ? 'Confirmado' : 'No llegó'}</span>
+            </div>
+          ))}
+        </section>
       )}
     </>
   );

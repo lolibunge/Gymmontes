@@ -26,6 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </form>
         </header>
         {children}
+        <p className="caption muted" style={{ textAlign: 'center', fontSize: 11 }}>GYM MONTES · v1.0 beta · Desarrollado por REBL</p>
       </div>
       <OwnerTabBar pending={pending} />
     </div>

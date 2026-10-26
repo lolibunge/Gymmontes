@@ -1,3 +1,4 @@
+import { METHOD_LABEL, pendingPayments } from '@/lib/payments';
 import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
@@ -35,6 +36,7 @@ export default async function Resumen() {
     one<{ s: number }>(`select count(*)::int as s from sessions where finished_at is not null and date >= $1 and date < $2`, [addDays(monday, -7), monday]),
     one<{ n: number }>(`select count(*)::int as n from users where role = 'socio' and created_at >= $1::date`, [monday]),
   ]);
+  const pagos = await pendingPayments();
   const porVencer = cuotas.filter((c) => c.left >= 0 && c.left <= 7);
   const vencidas = cuotas.filter((c) => c.left < 0);
   const urgentes = [...vencidas, ...porVencer.filter((c) => c.left <= 2)].slice(0, 4);
@@ -58,7 +60,16 @@ export default async function Resumen() {
 
       <section>
         <h2 className="label" style={{ paddingBottom: 6 }}>Para hoy</h2>
-        {pedidos.length === 0 && urgentes.length === 0 && <p className="caption muted" style={{ padding: '10px 0', borderTop: '1px solid var(--linea)' }}>Nada pendiente por hoy.</p>}
+        {pedidos.length === 0 && urgentes.length === 0 && pagos.length === 0 && <p className="caption muted" style={{ padding: '10px 0', borderTop: '1px solid var(--linea)' }}>Nada pendiente por hoy.</p>}
+        {pagos.map((p) => (
+          <Link key={`pg${p.id}`} href="/admin/gym?tab=cobros" className="list-row">
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span className="strong">{p.name} avisó que pagó</span>
+              <span className="caption muted">{METHOD_LABEL[p.method]} · {corta(p.paid_on)}{p.has_receipt ? ' · con comprobante' : ''}</span>
+            </span>
+            <span className="link" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>Confirmar →</span>
+          </Link>
+        ))}
         {pedidos.map((p) => (
           <Link key={`p${p.user_id}`} href={`/admin/socios/${p.user_id}/rutina`} className="list-row">
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -82,7 +93,7 @@ export default async function Resumen() {
       <section className="card bg-esquina" style={{ gap: 10 }}>
         <div className="row" style={{ alignItems: 'baseline' }}>
           <span className="label" style={{ color: '#d69ae8' }}>Esta semana</span>
-          <span className="caption" style={{ color: '#bdbdbd' }}>Semana pasada: {prev?.s ?? 0} sesiones{diff !== null && (semana?.s ?? 0) > 0 ? ` (${diff >= 0 ? '+' : ''}${diff}%)` : ''}</span>
+          <span className="caption" style={{ color: '#bdbdbd' }}>Semana pasada: {prev?.s ?? 0} {(prev?.s ?? 0) === 1 ? 'sesión' : 'sesiones'}{diff !== null && (semana?.s ?? 0) > 0 ? ` (${diff >= 0 ? '+' : ''}${diff}%)` : ''}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           <span style={{ display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{semana?.s ?? 0}</span><span className="caption" style={{ color: '#bdbdbd' }}>sesiones</span></span>

@@ -5,6 +5,7 @@ import { exerciseId, requireOwner, saveRoutine } from '@/lib/admin';
 import crypto from 'node:crypto';
 import { one, q } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
+import { addMonth, setSetting } from '@/lib/payments';
 import { parseCSV, parseRoutine, sheetsCsvUrls, type ParsedDay } from '@/lib/routine-import';
 
 export async function markAttended(form: FormData) {
@@ -18,7 +19,7 @@ export async function registerPayment(form: FormData) {
   const userId = Number(form.get('user'));
   const paid = String(form.get('paid_on') || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(paid)) return;
-  await q(`insert into memberships (user_id, paid_on, expires_on) values ($1, $2::date, $2::date + 30)`, [userId, paid]);
+  await addMonth(userId, paid);
   revalidatePath(`/admin/socios/${userId}`);
 }
 
@@ -209,4 +210,37 @@ export async function tempPassword(_prev: TempPwState, form: FormData): Promise<
   const r = await one<{ id: number }>(`update users set pin_hash = $2, auth_provider = 'password' where id = $1 returning id`, [id, hashPassword(pw)]);
   if (!r) return { error: 'No encontramos al socio.' };
   return { password: pw };
+}
+
+// ---------- Cobros ----------
+export async function saveCobros(form: FormData) {
+  await requireOwner();
+  const clean = (k: string) => String(form.get(k) || '').trim() || null;
+  const mp = clean('mp_link');
+  if (mp && !/^https:\/\//.test(mp)) redirect('/admin/gym?tab=cobros&error=link');
+  await setSetting('pay_fee', clean('fee'));
+  await setSetting('pay_bank', clean('bank'));
+  await setSetting('pay_mp_link', mp);
+  await setSetting('pay_cash', form.get('cash') === 'on' ? 'si' : 'no');
+  await setSetting('pay_cash_note', clean('cash_note'));
+  revalidatePath('/perfil/pagar');
+  redirect('/admin/gym?tab=cobros&guardado=1');
+}
+
+export async function confirmPayment(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  const r = await one<{ user_id: number; paid_on: string }>(
+    `update payment_reports set status = 'confirmado', reviewed_at = now() where id = $1 and status = 'pendiente'
+     returning user_id, to_char(paid_on,'YYYY-MM-DD') as paid_on`, [id]);
+  if (r) await addMonth(r.user_id, r.paid_on);
+  revalidatePath('/admin', 'layout');
+  redirect(String(form.get('back') || '/admin/gym?tab=cobros'));
+}
+
+export async function rejectPayment(form: FormData) {
+  await requireOwner();
+  await q(`update payment_reports set status = 'rechazado', reviewed_at = now() where id = $1 and status = 'pendiente'`, [Number(form.get('id'))]);
+  revalidatePath('/admin', 'layout');
+  redirect(String(form.get('back') || '/admin/gym?tab=cobros'));
 }

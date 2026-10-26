@@ -97,6 +97,22 @@ create table if not exists memberships (
   paid_on date not null,
   expires_on date not null
 );
+create table if not exists gym_settings (
+  key text primary key,
+  value text
+);
+create table if not exists payment_reports (
+  id serial primary key,
+  user_id int not null references users(id) on delete cascade,
+  method text not null,
+  paid_on date not null,
+  note text,
+  receipt bytea,
+  receipt_type text,
+  status text not null default 'pendiente',
+  created_at timestamptz not null default now(),
+  reviewed_at timestamptz
+);
 create table if not exists injuries (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,

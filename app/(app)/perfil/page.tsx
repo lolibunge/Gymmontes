@@ -41,8 +41,9 @@ export default async function Perfil() {
           <div className="progress" aria-hidden="true"><span style={{ width: `${cuota.pct}%`, background: c.bar }} /></div>
           <div className="row">
             <span className="caption" style={{ color: c.ink }}>
-              {cuota.estado === 'al día' ? `Pagaste el ${corta(cuota.paid_on)}` : cuota.estado === 'por vencer' ? 'Te avisamos 7 días antes' : 'Renovala en recepción para seguir'}
+              {cuota.estado === 'al día' ? `Mes del ${corta(cuota.paid_on)} al ${corta(cuota.expires_on)}` : cuota.estado === 'por vencer' ? 'Te avisamos 7 días antes' : 'Pagala para seguir entrenando'}
             </span>
+            <Link href="/perfil/pagar" className="link" style={{ fontSize: 13, color: cuota.estado === 'vencida' ? 'var(--alerta)' : undefined }}>Pagar mi cuota</Link>
           </div>
         </section>
       ) : (
@@ -89,6 +90,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.0 beta · Desarrollado por REBL</p>
     </main>
   );
 }

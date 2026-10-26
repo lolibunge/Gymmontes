@@ -43,14 +43,14 @@ export default async function Inicio() {
       )}
 
       {cuota && cuota.estado !== 'al día' && (
-        <Link href="/perfil" className={`card ${cuota.estado === 'vencida' ? 'bg-alerta' : 'bg-venda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', color: cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--guante)' }}>
+        <Link href="/perfil/pagar" className={`card ${cuota.estado === 'vencida' ? 'bg-alerta' : 'bg-venda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', color: cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--guante)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Clock color={cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--violeta-texto)'} />
             <span className="strong" style={{ fontSize: 14 }}>
               {cuota.estado === 'vencida' ? 'Tu cuota está vencida' : cuota.left === 0 ? 'Tu cuota vence hoy' : `Tu cuota vence en ${cuota.left} ${cuota.left === 1 ? 'día' : 'días'}`}
             </span>
           </span>
-          <span className="link">Ver</span>
+          <span className="link">Pagar</span>
         </Link>
       )}
 

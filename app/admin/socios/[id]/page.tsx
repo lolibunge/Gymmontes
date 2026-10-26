@@ -7,6 +7,8 @@ import { corta, DIAS, mesLargo, today, toIso } from '@/lib/dates';
 import { registerPayment } from '../../actions';
 import BackBar from '@/components/BackBar';
 import TempPassword from './TempPassword';
+import PaymentCard from '../../PaymentCard';
+import { pendingPayments } from '@/lib/payments';
 
 export default async function Socio({ params, searchParams }: { params: { id: string }; searchParams: { rutina?: string; editada?: string } }) {
   await requireOwner();
@@ -35,6 +37,7 @@ export default async function Socio({ params, searchParams }: { params: { id: st
         <p className="card bg-venda strong brand" style={{ padding: '12px 14px' }}>{searchParams.rutina ? `Rutina guardada. ${u.name} ya la ve en su app.` : 'Cambios guardados.'}</p>
       )}
 
+      {(await pendingPayments(u.id)).map((p) => <PaymentCard key={p.id} p={p} back={`/admin/socios/${u.id}`} />)}
       <section className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)' }}>
         <div className="row"><h2 className="label">Cuota</h2>
           {cuota && <span className={`badge ${cuota.estado === 'vencida' ? 'bg-alerta' : cuota.estado === 'por vencer' ? 'bg-venda brand' : 'bg-cuerda'}`}>{cuota.estado === 'al día' ? 'Al día' : cuota.estado === 'por vencer' ? 'Por vencer' : 'Vencida'}</span>}

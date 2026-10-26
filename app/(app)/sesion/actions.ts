@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
-import { today } from '@/lib/dates';
+import { today, weekdayOf } from '@/lib/dates';
+import { dayById, routineDays } from '@/lib/data';
 
 export async function startSession(form: FormData) {
   const user = await requireUser();
@@ -52,4 +53,52 @@ export async function finishSession(form: FormData) {
   await q('update sessions set finished_at = coalesce(finished_at, now()) where id = $1 and user_id = $2', [id, user.id]);
   revalidatePath('/');
   redirect(`/perfil/historial?ok=${id}`);
+}
+
+/** Cargar una sesión que se hizo antes de tener la app (o que se olvidó registrar). */
+export async function startPastSession(form: FormData) {
+  const user = await requireUser();
+  const date = String(form.get('fecha') || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date > today()) redirect('/perfil/historial?error=fecha');
+  const days = await routineDays(user.id);
+  const chosen = Number(form.get('dia')) || 0;
+  const day = chosen ? days.find((d) => d.id === chosen) : days.find((d) => d.weekday === weekdayOf(date));
+  if (!day) redirect(`/perfil/historial?error=dia&fecha=${date}`);
+  const open = await one<{ id: number }>(
+    'select id from sessions where user_id = $1 and day_id = $2 and date = $3 order by id desc limit 1',
+    [user.id, day.id, date]
+  );
+  const id = open?.id ?? (await one<{ id: number }>('insert into sessions (user_id, day_id, date) values ($1,$2,$3) returning id', [user.id, day.id, date]))!.id;
+  redirect(`/sesion/${id}?paso=0`);
+}
+
+/** Marca todas las series pendientes con el peso y las reps de la rutina (para cargar rápido sesiones pasadas). */
+export async function fillPlanned(form: FormData) {
+  const user = await requireUser();
+  const id = Number(form.get('id'));
+  const s = await one<{ id: number; day_id: number }>('select id, day_id from sessions where id = $1 and user_id = $2', [id, user.id]);
+  if (!s) redirect('/perfil/historial');
+  const day = await dayById(user.id, s.day_id);
+  if (!day) redirect('/perfil/historial');
+  for (const it of day.items) {
+    if (it.kind === 'cardio') {
+      const min = (it.segments ?? []).reduce((a, x) => a + x.min, 0) || null;
+      await q(
+        `insert into set_logs (session_id, item_id, set_no, minutes, done) values ($1,$2,1,$3,true)
+         on conflict (session_id, item_id, set_no) do nothing`,
+        [s.id, it.id, min]
+      );
+      continue;
+    }
+    // "8–10" → 8; "10 / pierna" → 10; "40–60 s" → 40
+    const reps = Number(it.reps?.match(/\d+/)?.[0]) || null;
+    for (let n = 1; n <= (it.sets ?? 3); n++) {
+      await q(
+        `insert into set_logs (session_id, item_id, set_no, kg, reps, done) values ($1,$2,$3,$4,$5,true)
+         on conflict (session_id, item_id, set_no) do nothing`,
+        [s.id, it.id, n, it.weight_kg, reps]
+      );
+    }
+  }
+  redirect(`/sesion/${s.id}?paso=0`);
 }

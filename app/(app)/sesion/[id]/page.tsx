@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
 import { dayById, lastTime } from '@/lib/data';
+import { today } from '@/lib/dates';
 import SessionRunner, { type RunnerItem } from './SessionRunner';
 
 export default async function Sesion({ params, searchParams }: { params: { id: string }; searchParams: { paso?: string } }) {
@@ -19,7 +20,7 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
   );
   const items: RunnerItem[] = await Promise.all(
     day.items.map(async (it) => {
-      const prev = it.kind === 'ejercicio' ? await lastTime(user.id, it.exercise_id, s.id) : null;
+      const prev = it.kind === 'ejercicio' ? await lastTime(user.id, it.exercise_id, s.id, s.date) : null;
       const mine = logs.filter((l) => l.item_id === it.id);
       const n = it.kind === 'cardio' ? 1 : it.sets ?? 3;
       return {
@@ -42,5 +43,5 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
   );
   const firstOpen = items.findIndex((i) => i.rows.some((r) => !r.done));
   const start = searchParams.paso ? Number(searchParams.paso) : firstOpen === -1 ? items.length - 1 : firstOpen;
-  return <SessionRunner sessionId={s.id} date={s.date} items={items} start={Math.max(0, Math.min(items.length - 1, start))} spotify={process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST || 'https://open.spotify.com/search/workout'} />;
+  return <SessionRunner key={logs.filter((l) => l.done).length} sessionId={s.id} date={s.date} past={s.date < today()} items={items} start={Math.max(0, Math.min(items.length - 1, start))} spotify={process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST || 'https://open.spotify.com/search/workout'} />;
 }

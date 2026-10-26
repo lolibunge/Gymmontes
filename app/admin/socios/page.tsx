@@ -47,7 +47,7 @@ export default async function Socios({ searchParams }: { searchParams: { q?: str
           <input className="input" type="search" name="q" defaultValue={searchParams.q ?? ''} placeholder="Buscar por nombre o email" />
         </label>
       </form>
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {chip('todos', 'Todos', rows.length)}
         {chip('vencer', 'Por vencer', porVencer)}
         {chip('vencidas', 'Vencidas', atrasados)}

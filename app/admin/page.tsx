@@ -84,7 +84,7 @@ export default async function Resumen() {
           <span className="label" style={{ color: '#d69ae8' }}>Esta semana</span>
           <span className="caption" style={{ color: '#bdbdbd' }}>Semana pasada: {prev?.s ?? 0} sesiones{diff !== null && (semana?.s ?? 0) > 0 ? ` (${diff >= 0 ? '+' : ''}${diff}%)` : ''}</span>
         </div>
-        <div style={{ display: 'flex', gap: 22 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
           <span style={{ display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{semana?.s ?? 0}</span><span className="caption" style={{ color: '#bdbdbd' }}>sesiones</span></span>
           <span style={{ display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{semana?.p ?? 0}</span><span className="caption" style={{ color: '#bdbdbd' }}>socios entrenaron</span></span>
           <span style={{ display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{nuevos?.n ?? 0}</span><span className="caption" style={{ color: '#bdbdbd' }}>cuentas nuevas</span></span>

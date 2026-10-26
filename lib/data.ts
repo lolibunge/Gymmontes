@@ -64,13 +64,14 @@ export async function weekDone(userId: number) {
 }
 
 /** Lo que hizo la última vez en ese ejercicio: kg y reps por serie. */
-export async function lastTime(userId: number, exerciseId: number, excludeSession?: number) {
+export async function lastTime(userId: number, exerciseId: number, excludeSession?: number, upTo?: string) {
   const s = await one<{ session_id: number; date: string }>(
     `select s.id as session_id, to_char(s.date,'YYYY-MM-DD') as date
        from set_logs l join sessions s on s.id = l.session_id join day_items i on i.id = l.item_id
       where s.user_id = $1 and i.exercise_id = $2 and l.done and s.id <> coalesce($3, -1)
+        and ($4::date is null or s.date <= $4::date)
       order by s.date desc, s.id desc limit 1`,
-    [userId, exerciseId, excludeSession ?? null]
+    [userId, exerciseId, excludeSession ?? null, upTo ?? null]
   );
   if (!s) return null;
   const sets = await q<{ kg: string | null; reps: number | null }>(

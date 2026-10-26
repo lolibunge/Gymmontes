@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useState, useTransition } from 'react';
 import { Back, Check, Chevron, Music } from '@/components/Icons';
-import { finishSession, saveSet } from '../actions';
+import { fillPlanned, finishSession, saveSet } from '../actions';
 import { corta } from '@/lib/dates';
 
 type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
@@ -14,7 +14,7 @@ export type RunnerItem = {
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, items: initial, start, spotify }: { sessionId: number; date: string; items: RunnerItem[]; start: number; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, items: initial, start, spotify }: { sessionId: number; date: string; past: boolean; items: RunnerItem[]; start: number; spotify: string }) {
   const [items, setItems] = useState(initial);
   const [i, setI] = useState(start);
   const [, startT] = useTransition();
@@ -43,6 +43,14 @@ export default function SessionRunner({ sessionId, date, items: initial, start, 
           <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · ejercicio {i + 1} de {items.length}</span>
           <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify" style={{ marginRight: -10 }}><Music color="var(--violeta-texto)" size={20} /></a>
         </div>
+        {past && doneItems < items.length && (
+          <form action={fillPlanned} className="card bg-venda" style={{ gap: 10, padding: '14px 16px' }}>
+            <input type="hidden" name="id" value={sessionId} />
+            <span className="strong" style={{ color: 'var(--guante)' }}>Estás cargando una sesión del {corta(date)}</span>
+            <span className="caption muted">Si la hiciste como dice la rutina, completala de una vez y después corregí lo que haya sido distinto.</span>
+            <button className="btn btn-outline" style={{ minHeight: 44, fontSize: 14 }}>Completar con la rutina</button>
+          </form>
+        )}
         <div aria-hidden="true" style={{ display: 'flex', gap: 4 }}>
           {items.map((x, k) => (
             <span key={x.id} style={{ flex: 1, height: 4, background: x.rows.every((r) => r.done) ? 'var(--violeta)' : k === i ? 'var(--guante)' : 'var(--linea)' }} />
@@ -84,7 +92,7 @@ export default function SessionRunner({ sessionId, date, items: initial, start, 
             </div>
           )}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '16px 0 6px', fontSize: 11, fontWeight: 600, letterSpacing: '0.1em' }} className="muted">
-            <span style={{ width: 40 }}>SERIE</span><span style={{ flex: 1 }}>KG</span><span style={{ flex: 1 }}>REPS</span><span style={{ width: 44 }} />
+            <span style={{ width: 40 }}>SERIE</span><span style={{ flex: 1, paddingLeft: 14 }}>KG</span><span style={{ flex: 1, paddingLeft: 14 }}>REPS</span><span style={{ width: 44 }} />
           </div>
           {it.rows.map((r, j) => {
             const isActive = j === activeRow;
@@ -130,21 +138,27 @@ export default function SessionRunner({ sessionId, date, items: initial, start, 
         </section>
       )}
 
-      {i < items.length - 1 ? (
-        <button type="button" onClick={() => setI(i + 1)} className="list-row" style={{ background: 'none', border: 0, borderTop: '1px solid var(--linea)', width: '100%', textAlign: 'left', cursor: 'pointer', padding: '14px 0' }}>
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em' }} className="muted">SIGUIENTE</span>
-            <span className="strong">{items[i + 1].name}{items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}</span>
-          </span>
-          <Chevron color="var(--guante)" size={20} />
-        </button>
-      ) : (
-        <form action={finishSession} style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 8 }}>
-          <input type="hidden" name="id" value={sessionId} />
-          <button className="btn btn-primary">Terminar sesión · {doneItems} de {items.length}</button>
-        </form>
-      )}
-      {i > 0 && <button type="button" className="link" onClick={() => setI(i - 1)} style={{ alignSelf: 'flex-start' }}>← Ejercicio anterior</button>}
+      <nav aria-label="Ejercicios" className="step-nav" style={{ gridTemplateColumns: i > 0 ? '56px 1fr' : '1fr' }}>
+        {i > 0 && (
+          <button type="button" className="step-btn step-prev" onClick={() => setI(i - 1)} aria-label={`Ejercicio anterior: ${items[i - 1].name}`}>
+            <Back size={22} color="var(--guante)" />
+          </button>
+        )}
+        {i < items.length - 1 ? (
+          <button type="button" className="step-btn" onClick={() => setI(i + 1)}>
+            <span className="step-text">
+              <span className="step-label">Siguiente</span>
+              <span className="strong step-name">{items[i + 1].name}{items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}</span>
+            </span>
+            <Chevron color="var(--guante)" size={20} />
+          </button>
+        ) : (
+          <form action={finishSession} style={{ display: 'flex' }}>
+            <input type="hidden" name="id" value={sessionId} />
+            <button className="btn btn-primary" style={{ flex: 1, minHeight: 64 }}>Terminar sesión · {doneItems} de {items.length}</button>
+          </form>
+        )}
+      </nav>
     </main>
   );
 }

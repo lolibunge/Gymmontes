@@ -234,6 +234,7 @@ async function main() {
     if (rows[0].n > 0) {
       console.log('[db] Tablas listas; ya hay datos, no se carga el ejemplo.');
       await ensureOwners(client);
+      await ensurePaySettings(client);
       return;
     }
     console.log('[db] Cargando datos de ejemplo…');
@@ -306,6 +307,7 @@ async function main() {
     );
     await client.query('commit');
     await ensureOwners(client);
+    await ensurePaySettings(client);
     console.log('[db] Listo.');
   } catch (e) {
     await client.query('rollback').catch(() => {});
@@ -325,6 +327,19 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 // La dueña: OWNER_EMAIL la marca como dueña. Si además está OWNER_PASSWORD,
 // se crea la cuenta (si no existe) o se le pone esa contraseña. Sirve para
 // entrar la primera vez o para recuperar el acceso.
+// Formas de cobro de GYM MONTES. Solo se cargan si la dueña todavía no guardó las suyas en Gym → Cobros.
+async function ensurePaySettings(client) {
+  const defaults = [
+    ['pay_fee', '$ 1.200'],
+    ['pay_day_fee', '$ 200'],
+    ['pay_cash', 'si'],
+    ['pay_bank', 'OCA Blue · cuenta 6923800\nGiro o depósito (Abitab, RedPagos)\nEn el concepto poné tu nombre'],
+  ];
+  for (const [k, v] of defaults) {
+    await client.query('insert into gym_settings (key, value) values ($1,$2) on conflict (key) do nothing', [k, v]);
+  }
+}
+
 async function ensureOwners(client) {
   const owners = (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
   if (!owners.length) return;

@@ -16,6 +16,7 @@ Hecha con Next.js 14 y Postgres (Neon), lista para publicar en Vercel.
    - `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET` (opcionales): activan "Continuar con Google". Ver más abajo.
    - `APP_URL` (opcional): la dirección pública, por ejemplo `https://gymmontes.vercel.app`. Se usa para volver desde Google y en los emails.
    - `OWNER_EMAIL`: el email de la dueña. Esa cuenta entra al panel `/admin` y recibe los avisos de pedidos. Puede ser más de uno, separados por coma.
+   - `OWNER_PASSWORD` (opcional): en el próximo deploy crea la cuenta de `OWNER_EMAIL` con esta contraseña, o se la cambia si ya existe. Sirve para entrar la primera vez o si te olvidaste la contraseña. Después de entrar, borrala y hacé Redeploy.
    - `RESEND_API_KEY` y `EMAIL_FROM` (opcionales): mandan un email a `OWNER_EMAIL` con cada pedido de rutina (cuenta gratis en resend.com).
    - `GYM_WHATSAPP` (opcional): número del gimnasio con código de país, sin espacios (ej. `59899123456`). Al pedir rutina, el socio ve un botón para avisar por WhatsApp.
 3. **Deploy.** En cada build, `scripts/db.mjs` crea las tablas si no existen y, si la base está vacía, carga los datos de ejemplo.

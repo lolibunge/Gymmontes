@@ -203,14 +203,10 @@ async function main() {
   await client.connect();
   try {
     await client.query(SCHEMA);
-    const owners = (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
-    if (owners.length) {
-      const up = await client.query(`update users set role = 'duena' where lower(email) = any($1) and role <> 'duena'`, [owners]);
-      if (up.rowCount) console.log(`[db] Cuenta de dueña activada para ${owners.join(', ')}.`);
-    }
     const { rows } = await client.query('select count(*)::int as n from users');
     if (rows[0].n > 0) {
       console.log('[db] Tablas listas; ya hay datos, no se carga el ejemplo.');
+      await ensureOwners(client);
       return;
     }
     console.log('[db] Cargando datos de ejemplo…');
@@ -282,6 +278,7 @@ async function main() {
        ('2026-10-20','Ya está la app de GYM MONTES','Escaneá el QR de cada máquina para ver cómo se usa.')`
     );
     await client.query('commit');
+    await ensureOwners(client);
     console.log('[db] Listo.');
   } catch (e) {
     await client.query('rollback').catch(() => {});
@@ -296,4 +293,32 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.error('[db] Error:', e.message);
     process.exit(1);
   });
+}
+
+// La dueña: OWNER_EMAIL la marca como dueña. Si además está OWNER_PASSWORD,
+// se crea la cuenta (si no existe) o se le pone esa contraseña. Sirve para
+// entrar la primera vez o para recuperar el acceso.
+async function ensureOwners(client) {
+  const owners = (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  if (!owners.length) return;
+  const pw = process.env.OWNER_PASSWORD;
+  for (const email of owners) {
+    if (pw) {
+      const r = await client.query(
+        `update users set role = 'duena', pin_hash = $2, auth_provider = 'password' where lower(email) = $1`,
+        [email, hashPin(pw)]
+      );
+      if (r.rowCount) console.log(`[db] Contraseña de ${email} actualizada desde OWNER_PASSWORD.`);
+      else {
+        await client.query(
+          `insert into users (name, email, pin_hash, auth_provider, role) values ($1,$2,$3,'password','duena')`,
+          [email.split('@')[0].replace(/^./, (c) => c.toUpperCase()), email, hashPin(pw)]
+        );
+        console.log(`[db] Cuenta de dueña creada para ${email}.`);
+      }
+    } else {
+      const up = await client.query(`update users set role = 'duena' where lower(email) = $1 and role <> 'duena'`, [email]);
+      if (up.rowCount) console.log(`[db] Cuenta de dueña activada para ${email}.`);
+    }
+  }
 }

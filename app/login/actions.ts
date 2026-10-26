@@ -22,7 +22,8 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     return { error: NOT_CONNECTED };
   }
   if (u && u.auth_provider === 'google' && !u.pin_hash) return { error: 'Esta cuenta se creó con Google. Tocá "Continuar con Google".' };
-  if (!u || !checkPin(password, u.pin_hash)) return { error: 'El email o la contraseña no coinciden.' };
+  if (!u) return { error: 'No hay ninguna cuenta con ese email. Revisalo o creá tu cuenta.' };
+  if (!checkPin(password, u.pin_hash)) return { error: 'La contraseña no coincide con la de ese email.' };
   setSession(u.id);
   if (isOwnerEmail(email) && u.role !== 'duena') {
     await one(`update users set role = 'duena' where id = $1`, [u.id]);

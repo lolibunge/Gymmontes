@@ -67,6 +67,7 @@ create table if not exists day_items (
   note text,
   segments jsonb
 );
+alter table day_items add column if not exists removed boolean not null default false;
 create table if not exists sessions (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,
@@ -112,6 +113,10 @@ create table if not exists routine_requests (
   status text not null default 'Enviado',
   created_at timestamptz not null default now()
 );
+alter table routine_requests add column if not exists kind text not null default 'nueva';
+alter table routine_requests add column if not exists change text;
+alter table routine_requests add column if not exists weekday int;
+alter table routine_requests add column if not exists exercise text;
 create table if not exists challenges (
   id serial primary key,
   title text not null,

@@ -1,7 +1,7 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireOwner, saveRoutine } from '@/lib/admin';
+import { exerciseId, requireOwner, saveRoutine } from '@/lib/admin';
 import crypto from 'node:crypto';
 import { one, q } from '@/lib/db';
 import { hashPassword } from '@/lib/auth';
@@ -68,18 +68,53 @@ export async function saveEdits(form: FormData) {
   await requireOwner();
   const userId = Number(form.get('user'));
   const ids = form.getAll('item').map(Number);
-  for (const id of ids) {
-    const sets = form.get(`sets_${id}`);
+  // Solo ítems de la rutina activa de ese socio
+  const own = async (id: number) => one<{ day_id: number; position: number; exercise_id: number; name: string; kind: string }>(
+    `select i.day_id, i.position, i.exercise_id, e.name, i.kind from day_items i join exercises e on e.id = i.exercise_id
+       join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
+      where i.id = $1 and r.user_id = $2 and r.active and not i.removed`, [id, userId]);
+  for (const raw of ids) {
+    let id = raw;
+    const cur = await own(id);
+    if (!cur) continue;
+    // Quitar: se oculta de la rutina pero el historial queda
+    if (form.get(`remove_${id}`) === 'on') { await q('update day_items set removed = true where id = $1', [id]); continue; }
+    // Cambiar el ejercicio: el viejo se oculta y entra uno nuevo en el mismo lugar (así el historial sigue con el nombre viejo)
+    const newName = String(form.get(`name_${id}`) || '').trim();
+    if (newName && newName.toLowerCase() !== cur.name.toLowerCase()) {
+      await q('update day_items set removed = true where id = $1', [id]);
+      const r = await one<{ id: number }>(
+        `insert into day_items (day_id, position, kind, exercise_id, sets, reps, weight_kg, rest_s, raise_weight, note, segments)
+         select day_id, position, kind, $2, sets, reps, weight_kg, rest_s, false, note, segments from day_items where id = $1 returning id`,
+        [id, await exerciseId(newName)]);
+      id = r!.id;
+    }
+    const sets = form.get(`sets_${raw}`);
     const kg = String(form.get(`kg_${id}`) ?? '').replace(',', '.').trim();
     await q(
       `update day_items i set sets = coalesce($2::int, i.sets), reps = $3, weight_kg = $4, raise_weight = $5, note = $6
          from routine_days d join routines r on r.id = d.routine_id
         where i.id = $1 and i.day_id = d.id and r.user_id = $7 and r.active`,
-      [id, sets ? Number(sets) : null, String(form.get(`reps_${id}`) || '').trim() || null, kg === '' ? null : Number(kg) || null,
-       form.get(`raise_${id}`) === 'on', String(form.get(`note_${id}`) || '').trim() || null, userId]
+      [id, sets ? Number(sets) : null, String(form.get(`reps_${raw}`) || '').trim() || null, kg === '' ? null : Number(kg) || null,
+       form.get(`raise_${raw}`) === 'on', String(form.get(`note_${raw}`) || '').trim() || null, userId]
     );
   }
+  // Agregar un ejercicio al final de un día
+  for (const dayId of form.getAll('day').map(Number)) {
+    const name = String(form.get(`new_name_${dayId}`) || '').trim();
+    if (!name) continue;
+    const d = await one<{ id: number }>(
+      `select d.id from routine_days d join routines r on r.id = d.routine_id where d.id = $1 and r.user_id = $2 and r.active`, [dayId, userId]);
+    if (!d) continue;
+    const kgN = String(form.get(`new_kg_${dayId}`) ?? '').replace(',', '.').trim();
+    // Antes del cardio, si el día tiene
+    const pos = await one<{ p: number }>(`select coalesce(max(position) filter (where kind = 'ejercicio'), 0) + 1 as p from day_items where day_id = $1 and not removed`, [dayId]);
+    await q('update day_items set position = position + 1 where day_id = $1 and position >= $2', [dayId, pos!.p]);
+    await q(`insert into day_items (day_id, position, kind, exercise_id, sets, reps, weight_kg) values ($1,$2,'ejercicio',$3,$4,$5,$6)`,
+      [dayId, pos!.p, await exerciseId(name), Number(form.get(`new_sets_${dayId}`)) || 3, String(form.get(`new_reps_${dayId}`) || '').trim() || null, kgN === '' ? null : Number(kgN) || null]);
+  }
   revalidatePath('/', 'layout');
+  await q(`update routine_requests set status = 'Lista' where user_id = $1 and status = 'Enviado' and kind = 'ajuste'`, [userId]);
   redirect(`/admin/socios/${userId}?editada=1`);
 }
 

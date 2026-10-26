@@ -22,7 +22,7 @@ export async function routineDays(userId: number): Promise<Day[]> {
     `select i.id, i.day_id, i.position, i.kind, i.exercise_id, e.slug, e.name, e.muscle, i.sets, i.reps,
             i.weight_kg::text as weight_kg, i.rest_s, i.raise_weight, i.note, i.segments
        from day_items i join exercises e on e.id = i.exercise_id
-      where i.day_id = any($1) order by i.position`,
+      where i.day_id = any($1) and not i.removed order by i.position`,
     [days.map((d) => d.id)]
   );
   return days.map((d) => ({ ...d, items: items.filter((i) => i.day_id === d.id) }));
@@ -144,7 +144,7 @@ export async function stats(userId: number) {
   while (set.has(expect)) { streak++; expect = addDays(expect, -7); }
   const up = await one<{ n: number }>(
     `select count(*)::int as n from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
-      where r.user_id = $1 and r.active and i.raise_weight`,
+      where r.user_id = $1 and r.active and i.raise_weight and not i.removed`,
     [userId]
   );
   return { total: total?.n ?? 0, streak, toRaise: up?.n ?? 0 };

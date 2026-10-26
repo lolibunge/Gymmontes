@@ -49,8 +49,24 @@ export async function sendRequest(form: FormData) {
   const goals = form.getAll('goal').map(String);
   const days = Number(form.get('days')) || null;
   const notes = clean(form.get('notes'));
-  await q('insert into routine_requests (user_id, goals, days, notes) values ($1,$2,$3,$4)', [user.id, goals, days, notes]);
   const base = process.env.APP_URL || 'https://gymmontes.vercel.app';
+  if (form.get('kind') === 'ajuste') {
+    const change = clean(form.get('change')) ?? 'Ajuste';
+    const weekday = Number(form.get('day')) || null;
+    const exercise = clean(form.get('exercise'));
+    if (!notes && !exercise) redirect('/pedir?tipo=ajuste&falta=1');
+    await q('insert into routine_requests (user_id, kind, change, weekday, exercise, notes) values ($1,$2,$3,$4,$5,$6)',
+      [user.id, 'ajuste', change, weekday, exercise, notes]);
+    const DIAS = ['', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'];
+    await emailOwner(
+      `Ajuste de rutina: ${user.name}`,
+      `<h2 style="font-family:Arial">${esc(user.name)} pide un ajuste</h2>
+       <p style="font-family:Arial"><b>${esc(change)}</b>${weekday ? ` · ${DIAS[weekday]}` : ''}${exercise ? ` · ${esc(exercise)}` : ''}<br>${esc(notes ?? '')}</p>
+       <p style="font-family:Arial"><a href="${base}/admin/pedidos">Abrir la bandeja de pedidos</a></p>`
+    );
+    redirect('/pedir?enviado=1');
+  }
+  await q('insert into routine_requests (user_id, goals, days, notes) values ($1,$2,$3,$4)', [user.id, goals, days, notes]);
   await emailOwner(
     `Nuevo pedido de rutina: ${user.name}`,
     `<h2 style="font-family:Arial">Pedido de rutina de ${esc(user.name)}</h2>

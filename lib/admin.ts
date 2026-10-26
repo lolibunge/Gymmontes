@@ -14,7 +14,7 @@ export async function pendingCount() {
   return r?.n ?? 0;
 }
 
-async function exerciseId(name: string): Promise<number> {
+export async function exerciseId(name: string): Promise<number> {
   const found = await one<{ id: number }>('select id from exercises where lower(name) = lower($1) limit 1', [name.trim()]);
   if (found) return found.id;
   let slug = slugify(name);

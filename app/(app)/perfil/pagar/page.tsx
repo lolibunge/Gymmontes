@@ -62,7 +62,7 @@ export default async function Pagar() {
             <CopyButton text={cfg.bank} />
           </div>
           <pre className="bg-cuerda" style={{ margin: 0, padding: '10px 12px', borderRadius: 4, fontFamily: 'var(--font-inter)', fontSize: 14, lineHeight: '20px', whiteSpace: 'pre-wrap' }}>{cfg.bank}</pre>
-          <ReportForm method="transferencia" today={t} label="Ya deposité o transferí" />
+          <ReportForm method="transferencia" today={t} label="Ya deposité o transferí" expires={cuota?.expires_on ?? null} />
         </section>
       )}
 
@@ -71,7 +71,7 @@ export default async function Pagar() {
           <span className="strong">Mercado Pago</span>
           <span className="caption muted">Pagás con tarjeta, débito o saldo de Mercado Pago. Después volvé acá y avisá.</span>
           <a href={cfg.mpLink} target="_blank" rel="noopener" className="btn" style={{ background: '#009ee3', color: '#ffffff', justifyContent: 'center' }}>Pagar con Mercado Pago</a>
-          <ReportForm method="mercadopago" today={t} label="Ya pagué" />
+          <ReportForm method="mercadopago" today={t} label="Ya pagué" expires={cuota?.expires_on ?? null} />
         </section>
       )}
     </main>

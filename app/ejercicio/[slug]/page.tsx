@@ -5,6 +5,7 @@ import { one, q } from '@/lib/db';
 import { DIAS } from '@/lib/dates';
 import { Close } from '@/components/Icons';
 import { weightLabel } from '@/lib/data';
+import { videoFor } from '@/lib/video';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +16,7 @@ export default async function Ficha({ params }: { params: { slug: string } }) {
     [params.slug]
   );
   if (!ex) notFound();
+  const video = videoFor(ex.video_url);
   const enRutina = await q<{ weekday: number; sets: number | null; reps: string | null; weight_kg: string | null }>(
     `select d.weekday, i.sets, i.reps, i.weight_kg::text as weight_kg from day_items i
        join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
@@ -32,8 +34,13 @@ export default async function Ficha({ params }: { params: { slug: string } }) {
           ) : <span />}
           <Link href="/rutina" className="icon-btn" aria-label="Cerrar" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><Close /></Link>
         </div>
-        {ex.video_url ? (
-          <video src={ex.video_url} controls playsInline style={{ width: '100%', borderRadius: 4, margin: '16px 0' }} />
+        {video?.kind === 'youtube' ? (
+          <iframe src={video.src} title={`Video: ${ex.name}`} allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen
+            style={{ width: '100%', aspectRatio: '16 / 9', border: 0, borderRadius: 4, margin: '16px 0' }} />
+        ) : video?.kind === 'file' ? (
+          <video src={video.src} controls playsInline style={{ width: '100%', borderRadius: 4, margin: '16px 0' }} />
+        ) : video?.kind === 'link' ? (
+          <a href={video.src} target="_blank" rel="noopener" className="btn btn-primary" style={{ margin: '24px 0', justifyContent: 'center' }}>Ver el video en {video.host} ▶</a>
         ) : (
           <p style={{ alignSelf: 'center', textAlign: 'center', fontSize: 13, color: '#bdbdbd', padding: '24px 0' }}>Acá va el video de la máquina<br />(lo sube la entrenadora)</p>
         )}

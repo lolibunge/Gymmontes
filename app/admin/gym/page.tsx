@@ -6,8 +6,8 @@ import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge, saveCobro
 import { METHOD_LABEL, paySettings, pendingPayments } from '@/lib/payments';
 import PaymentCard from '../PaymentCard';
 
-const TABS = ['cobros', 'novedades', 'reto', 'sorteo'] as const;
-const LABEL: Record<string, string> = { cobros: 'Cobros', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
+const TABS = ['cobros', 'maquinas', 'novedades', 'reto', 'sorteo'] as const;
+const LABEL: Record<string, string> = { cobros: 'Cobros', maquinas: 'Máquinas', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
 
 export default async function Gym({ searchParams }: { searchParams: { tab?: string; guardado?: string; error?: string } }) {
   await requireOwner();
@@ -22,12 +22,13 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
       <nav role="tablist" aria-label="Secciones" style={{ display: 'flex', gap: 4, padding: 4, borderRadius: 8, background: 'var(--cuerda)' }}>
         {TABS.map((k) => (
           <Link key={k} href={`/admin/gym?tab=${k}`} role="tab" aria-selected={tab === k}
-            style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 14,
+            style={{ flex: 1, height: 40, display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: 4, fontSize: 12.5,
               fontWeight: tab === k ? 600 : 500, background: tab === k ? 'var(--lona)' : 'transparent', color: tab === k ? 'var(--guante)' : 'var(--campana)',
               boxShadow: tab === k ? 'inset 0 0 0 1.5px var(--linea)' : 'none' }}>{LABEL[k]}</Link>
         ))}
       </nav>
       {tab === 'cobros' && <Cobros guardado={!!searchParams.guardado} error={searchParams.error} />}
+      {tab === 'maquinas' && <Maquinas />}
       {tab === 'novedades' && <Novedades />}
       {tab === 'reto' && <Reto mes={mes} next={next} />}
       {tab === 'sorteo' && <Sorteo hoy={t} />}
@@ -199,5 +200,39 @@ async function Cobros({ guardado, error }: { guardado: boolean; error?: string }
         </section>
       )}
     </>
+  );
+}
+
+async function Maquinas() {
+  const rows = await q<{ id: number; name: string; machine_code: string | null; steps: number; video: boolean; uso: number }>(
+    `select e.id, e.name, e.machine_code, jsonb_array_length(e.steps) as steps, e.video_url is not null as video,
+            (select count(*)::int from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
+              where i.exercise_id = e.id and r.active and not i.removed) as uso
+       from exercises e where e.slug <> 'bicicleta'
+      order by (e.machine_code is null), e.machine_code, uso desc, e.name`);
+  const faltan = rows.filter((r) => r.uso > 0 && (!r.steps || !r.video)).length;
+  return (
+    <section style={{ display: 'flex', flexDirection: 'column' }}>
+      <p className="caption muted" style={{ paddingBottom: 10 }}>
+        Cargá cómo se hace cada ejercicio y el video. Con un código de máquina (M01, M02…) se genera el QR para pegar en la máquina.
+        {faltan > 0 && <> <b style={{ color: 'var(--guante)' }}>{faltan} {faltan === 1 ? 'ejercicio de las rutinas no tiene' : 'ejercicios de las rutinas no tienen'} pasos o video.</b></>}
+      </p>
+      {rows.map((r) => (
+        <Link key={r.id} href={`/admin/ejercicios/${r.id}`} className="list-row">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ width: 40, flexShrink: 0, textAlign: 'center', padding: '4px 0', borderRadius: 4, fontSize: 12, fontWeight: 800,
+              background: r.machine_code ? 'var(--guante)' : 'var(--cuerda)', color: r.machine_code ? 'var(--lona)' : 'var(--campana)' }}>{r.machine_code ?? '—'}</span>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span className="strong">{r.name}</span>
+              <span className="caption muted">
+                {r.steps ? `${r.steps} ${r.steps === 1 ? 'paso' : 'pasos'}` : <span style={{ color: 'var(--alerta)' }}>sin pasos</span>}
+                {' · '}{r.video ? 'video ✓' : 'sin video'}{r.uso ? ` · en ${r.uso} ${r.uso === 1 ? 'rutina' : 'rutinas'}` : ''}
+              </span>
+            </span>
+          </span>
+          <span className="link" style={{ fontSize: 13 }}>Editar</span>
+        </Link>
+      ))}
+    </section>
   );
 }

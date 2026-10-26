@@ -245,3 +245,24 @@ export async function rejectPayment(form: FormData) {
   revalidatePath('/admin', 'layout');
   redirect(String(form.get('back') || '/admin/gym?tab=cobros'));
 }
+
+// ---------- Máquinas y ejercicios ----------
+export async function saveExercise(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  const clean = (k: string) => String(form.get(k) || '').trim() || null;
+  const name = clean('name');
+  if (!name) redirect(`/admin/ejercicios/${id}?error=nombre`);
+  const code = clean('machine_code')?.toUpperCase().replace(/\s+/g, '') ?? null;
+  if (code) {
+    const taken = await one<{ id: number }>('select id from exercises where upper(machine_code) = $1 and id <> $2', [code, id]);
+    if (taken) redirect(`/admin/ejercicios/${id}?error=codigo`);
+  }
+  const video = clean('video_url');
+  if (video && !/^https:\/\//.test(video)) redirect(`/admin/ejercicios/${id}?error=video`);
+  const steps = String(form.get('steps') || '').split('\n').map((s) => s.replace(/^\s*\d+[.)-]\s*/, '').trim()).filter(Boolean);
+  await q('update exercises set name = $2, muscle = $3, machine_code = $4, steps = $5, video_url = $6 where id = $1',
+    [id, name, clean('muscle'), code, JSON.stringify(steps), video]);
+  revalidatePath('/', 'layout');
+  redirect(`/admin/ejercicios/${id}?guardado=1`);
+}

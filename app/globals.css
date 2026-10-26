@@ -109,3 +109,10 @@ textarea.input { height: auto; padding: 14px; line-height: 21px; resize: none; }
 .step-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .step-label { font-size: 11px; line-height: 14px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--campana); }
 .step-name { line-height: 20px; }
+
+/* Imprimir el sticker QR de una máquina */
+@media print {
+  .no-print, .tabbar, header { display: none !important; }
+  body, .app, .page { background: #fff !important; color: #111 !important; padding: 0 !important; }
+  .print-sticker { box-shadow: none !important; border: 2px solid #111; max-width: 320px; margin: 24px auto; color: #111; }
+}

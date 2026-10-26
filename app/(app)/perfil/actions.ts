@@ -1,7 +1,8 @@
 'use server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
-import { requireUser } from '@/lib/auth';
+import { checkPin, hashPassword, requireUser } from '@/lib/auth';
+import { one } from '@/lib/db';
 import { q } from '@/lib/db';
 import { emailOwner, esc } from '@/lib/notify';
 
@@ -78,4 +79,16 @@ export async function declarePayment(form: FormData) {
   await q(`insert into memberships (user_id, paid_on, expires_on) values ($1, $2::date, $2::date + 30)`, [user.id, paid]);
   revalidatePath('/perfil');
   revalidatePath('/');
+}
+
+export type PwState = { ok?: boolean; error?: string };
+export async function changePassword(_prev: PwState, form: FormData): Promise<PwState> {
+  const u = await requireUser();
+  const cur = String(form.get('current') || '');
+  const pw = String(form.get('password') || '');
+  if (pw.length < 8) return { error: 'La contraseña nueva tiene que tener al menos 8 caracteres.' };
+  const row = await one<{ pin_hash: string }>('select pin_hash from users where id = $1', [u.id]);
+  if (row?.pin_hash && !checkPin(cur, row.pin_hash)) return { error: 'La contraseña actual no coincide.' };
+  await q(`update users set pin_hash = $2, auth_provider = 'password' where id = $1`, [u.id, hashPassword(pw)]);
+  return { ok: true };
 }

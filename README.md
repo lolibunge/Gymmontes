@@ -17,7 +17,7 @@ Hecha con Next.js 14 y Postgres (Neon), lista para publicar en Vercel.
    - `APP_URL` (opcional): la dirección pública, por ejemplo `https://gymmontes.vercel.app`. Se usa para volver desde Google y en los emails.
    - `OWNER_EMAIL`: el email de la dueña. Esa cuenta entra al panel `/admin` y recibe los avisos de pedidos. Puede ser más de uno, separados por coma.
    - `OWNER_PASSWORD` (opcional): en el próximo deploy crea la cuenta de `OWNER_EMAIL` con esta contraseña, o se la cambia si ya existe. Sirve para entrar la primera vez o si te olvidaste la contraseña. Después de entrar, borrala y hacé Redeploy.
-   - `RESEND_API_KEY` y `EMAIL_FROM` (opcionales): mandan un email a `OWNER_EMAIL` con cada pedido de rutina (cuenta gratis en resend.com).
+   - `RESEND_API_KEY` y `EMAIL_FROM` (opcionales): mandan un email a `OWNER_EMAIL` con cada pedido de rutina y activan "¿Te olvidaste la contraseña?" por email (cuenta gratis en resend.com). Para mandar a cualquier socio, Resend pide verificar un dominio propio en `EMAIL_FROM`.
    - `GYM_WHATSAPP` (opcional): número del gimnasio con código de país, sin espacios (ej. `59899123456`). Al pedir rutina, el socio ve un botón para avisar por WhatsApp.
 3. **Deploy.** En cada build, `scripts/db.mjs` crea las tablas si no existen y, si la base está vacía, carga los datos de ejemplo.
 
@@ -41,6 +41,12 @@ Los socios crean su cuenta en `/registro` con nombre, email y contraseña (míni
 5. Copiá el *ID de cliente* y el *Secreto* a Vercel como `GOOGLE_CLIENT_ID` y `GOOGLE_CLIENT_SECRET`, cargá `APP_URL=https://gymmontes.vercel.app` y hacé Redeploy.
 
 Hasta que estén cargadas, el botón de Google no aparece.
+
+## Contraseñas
+
+- En el ingreso, **Ver** muestra lo que escribiste. Si el email tiene un error típico (`@mail.com`, `@gmial.com`…), la app sugiere el correcto.
+- **¿Te olvidaste la contraseña?**: con `RESEND_API_KEY`, llega un link por email (vale 1 hora y una sola vez). Sin email, la dueña entra a la ficha del socio → **Acceso → Generar contraseña nueva** y se la pasa.
+- Cada socio cambia su contraseña en **Perfil → Datos personales**.
 
 ## Instalar en el celular
 

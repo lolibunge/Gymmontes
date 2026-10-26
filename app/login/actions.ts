@@ -22,7 +22,10 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
     return { error: NOT_CONNECTED };
   }
   if (u && u.auth_provider === 'google' && !u.pin_hash) return { error: 'Esta cuenta se creó con Google. Tocá "Continuar con Google".' };
-  if (!u) return { error: 'No hay ninguna cuenta con ese email. Revisalo o creá tu cuenta.' };
+  if (!u) {
+    const sug = suggestEmail(email);
+    return { error: sug ? `No hay ninguna cuenta con ${email}. ¿Quisiste decir ${sug}?` : `No hay ninguna cuenta con ${email}. Revisalo o creá tu cuenta.` };
+  }
   if (!checkPin(password, u.pin_hash)) return { error: 'La contraseña no coincide con la de ese email.' };
   setSession(u.id);
   if (isOwnerEmail(email) && u.role !== 'duena') {
@@ -63,4 +66,16 @@ export async function register(_prev: FormState, form: FormData): Promise<FormSt
 export async function logout() {
   cookies().delete(COOKIE);
   redirect('/login');
+}
+
+const TYPOS: Record<string, string> = {
+  'mail.com': 'gmail.com', 'gmial.com': 'gmail.com', 'gmai.com': 'gmail.com', 'gmal.com': 'gmail.com', 'gamil.com': 'gmail.com',
+  'gmail.co': 'gmail.com', 'gmail.con': 'gmail.com', 'gmail.cm': 'gmail.com', 'gnail.com': 'gmail.com', 'gmaill.com': 'gmail.com',
+  'hotmal.com': 'hotmail.com', 'hotmial.com': 'hotmail.com', 'hotmail.con': 'hotmail.com', 'hotmai.com': 'hotmail.com',
+  'outlok.com': 'outlook.com', 'outlook.con': 'outlook.com', 'yahoo.con': 'yahoo.com',
+};
+function suggestEmail(email: string): string | null {
+  const [user, domain] = email.split('@');
+  const fix = domain && TYPOS[domain];
+  return fix ? `${user}@${fix}` : null;
 }

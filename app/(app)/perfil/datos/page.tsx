@@ -1,9 +1,12 @@
 import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
 import { saveDatos } from '../actions';
+import { one } from '@/lib/db';
+import ChangePassword from './ChangePassword';
 
 export default async function Datos({ searchParams }: { searchParams: { ok?: string } }) {
   const u = await requireUser();
+  const pw = await one<{ has: boolean }>(`select pin_hash <> '' as has from users where id = $1`, [u.id]);
   return (
     <main className="page tight">
       <BackBar href="/perfil" label="Volver a Perfil" right={searchParams.ok ? <span className="strong brand" style={{ fontSize: 14 }}>Guardado</span> : null} />
@@ -24,6 +27,7 @@ export default async function Datos({ searchParams }: { searchParams: { ok?: str
         <label className="field"><span className="sr">Contacto de emergencia</span><input className="input" name="emergency" defaultValue={u.emergency ?? ''} placeholder="Nombre y teléfono" /></label>
         <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: 6 }}>Guardar</button>
       </form>
+      <ChangePassword hasPassword={!!pw?.has} />
     </main>
   );
 }

@@ -6,6 +6,7 @@ import { membership, routineDays, weightLabel, minutes } from '@/lib/data';
 import { corta, DIAS, mesLargo, today, toIso } from '@/lib/dates';
 import { registerPayment } from '../../actions';
 import BackBar from '@/components/BackBar';
+import TempPassword from './TempPassword';
 
 export default async function Socio({ params, searchParams }: { params: { id: string }; searchParams: { rutina?: string; editada?: string } }) {
   await requireOwner();
@@ -80,6 +81,8 @@ export default async function Socio({ params, searchParams }: { params: { id: st
         {injuries.map((i, k) => <p key={k} className="caption"><b>{i.title}</b> ({i.status.toLowerCase()}){i.notes ? `: ${i.notes}` : ''}</p>)}
         {!req && !u.goals_text && injuries.length === 0 && <p className="caption muted">Sin datos cargados.</p>}
       </section>
+
+      <TempPassword id={u.id} email={u.email} />
     </main>
   );
 }

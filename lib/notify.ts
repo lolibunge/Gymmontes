@@ -1,13 +1,20 @@
 // Avisos a la dueña. El email solo se manda si están RESEND_API_KEY y OWNER_EMAIL.
 export async function emailOwner(subject: string, html: string) {
-  const key = process.env.RESEND_API_KEY;
   const to = process.env.OWNER_EMAIL;
-  if (!key || !to) return false;
+  if (!to) return false;
+  return sendEmail(to.split(',').map((s) => s.trim()), subject, html);
+}
+
+export const emailEnabled = () => !!process.env.RESEND_API_KEY;
+
+export async function sendEmail(to: string[], subject: string, html: string) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key) return false;
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: process.env.EMAIL_FROM || 'GYM MONTES <onboarding@resend.dev>', to: to.split(',').map((s) => s.trim()), subject, html }),
+      body: JSON.stringify({ from: process.env.EMAIL_FROM || 'GYM MONTES <onboarding@resend.dev>', to, subject, html }),
     });
     if (!r.ok) console.error('[email]', r.status, await r.text());
     return r.ok;

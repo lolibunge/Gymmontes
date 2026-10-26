@@ -1,7 +1,9 @@
 'use client';
 import { useFormState, useFormStatus } from 'react-dom';
 import { login, type FormState } from './actions';
+import Link from 'next/link';
 import { Arrow } from '@/components/Icons';
+import PasswordInput from '@/components/PasswordInput';
 
 function Submit() {
   const { pending } = useFormStatus();
@@ -17,8 +19,9 @@ export default function LoginForm({ next }: { next: string }) {
         <input className="input" type="email" name="email" autoComplete="email" inputMode="email" required placeholder="tu@email.com" />
       </label>
       <label className="field"><span>Contraseña</span>
-        <input className="input" type="password" name="password" autoComplete="current-password" required placeholder="••••••••" />
+        <PasswordInput />
       </label>
+      <Link href="/recuperar" className="link" style={{ alignSelf: 'flex-end', fontSize: 13, marginTop: -4 }}>¿Te olvidaste la contraseña?</Link>
       {state.error && <p role="alert" style={{ color: 'var(--alerta)', fontSize: 14, fontWeight: 600 }}>{state.error}</p>}
       <div style={{ paddingTop: 4 }}><Submit /></div>
     </form>

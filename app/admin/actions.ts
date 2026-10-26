@@ -2,7 +2,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOwner, saveRoutine } from '@/lib/admin';
+import crypto from 'node:crypto';
 import { one, q } from '@/lib/db';
+import { hashPassword } from '@/lib/auth';
 import { parseCSV, parseRoutine, sheetsCsvUrls, type ParsedDay } from '@/lib/routine-import';
 
 export async function markAttended(form: FormData) {
@@ -157,4 +159,19 @@ async function fetchSheet(urls: string[]): Promise<{ text: string } | { error: s
   }
   if (status === 404) return { error: `No encontramos esa pestaña. Abrí la pestaña Rutina y copiá el link de nuevo. ${DOWNLOAD_TIP}` };
   return { error: `No pudimos abrir la planilla${status ? ` (Google respondió ${status})` : ''}. ${DOWNLOAD_TIP}` };
+}
+
+export type TempPwState = { password?: string; error?: string };
+
+/** La dueña genera una contraseña provisoria para un socio que se olvidó la suya. */
+export async function tempPassword(_prev: TempPwState, form: FormData): Promise<TempPwState> {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  // Sin letras que se confunden (l, 1, O, 0)
+  const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const bytes = crypto.randomBytes(8);
+  const pw = `gym-${Array.from(bytes).map((b) => abc[b % abc.length]).join('').slice(0, 6)}`;
+  const r = await one<{ id: number }>(`update users set pin_hash = $2, auth_provider = 'password' where id = $1 returning id`, [id, hashPassword(pw)]);
+  if (!r) return { error: 'No encontramos al socio.' };
+  return { password: pw };
 }

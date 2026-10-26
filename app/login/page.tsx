@@ -26,7 +26,6 @@ export default async function LoginPage({ searchParams }: { searchParams: { next
       <p style={{ textAlign: 'center', fontSize: 15 }}>
         <span className="muted">¿Primera vez? </span><Link href="/registro" className="link" style={{ fontSize: 15 }}>Creá tu cuenta</Link>
       </p>
-      <p className="caption muted" style={{ textAlign: 'center' }}>¿Te olvidaste la contraseña? Pedí que te la reinicien en recepción.</p>
     </AuthShell>
   );
 }

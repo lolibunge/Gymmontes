@@ -104,7 +104,7 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
         <section className="card bg-venda" style={{ gap: 4, padding: '12px 14px 6px' }}>
           <div className="row" style={{ alignItems: 'baseline', paddingBottom: 4 }}>
             <span className="label brand">Lo que hiciste</span>
-            <Link href="/perfil/historial" className="link" style={{ fontSize: 13 }}>Historial</Link>
+            <Link href={`/sesion/${logs.find((l) => l.date === date)?.session_id}`} className="link" style={{ fontSize: 13 }}>Corregir</Link>
           </div>
           {hecho.map((x, k) => (
             <div key={k} className="row" style={{ alignItems: 'baseline', gap: 12, padding: '7px 0', borderTop: '1px solid var(--linea)', fontSize: 13, color: 'var(--guante)' }}>

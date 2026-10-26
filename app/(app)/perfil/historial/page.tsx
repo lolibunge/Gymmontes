@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
@@ -96,6 +97,9 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
                     </span>
                   </div>
                 ))}
+                <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 6, borderTop: '1px solid var(--linea)' }}>
+                  <Link href={`/sesion/${s.id}`} className="link" style={{ fontSize: 13, padding: '6px 0' }}>Corregir esta sesión</Link>
+                </div>
               </div>
             </details>
           );

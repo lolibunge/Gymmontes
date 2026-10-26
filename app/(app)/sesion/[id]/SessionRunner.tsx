@@ -14,7 +14,7 @@ export type RunnerItem = {
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, past, items: initial, start, spotify }: { sessionId: number; date: string; past: boolean; items: RunnerItem[]; start: number; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, finished, items: initial, start, spotify }: { sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; spotify: string }) {
   const [items, setItems] = useState(initial);
   const [i, setI] = useState(start);
   const [, startT] = useTransition();
@@ -46,9 +46,9 @@ export default function SessionRunner({ sessionId, date, past, items: initial, s
         {past && doneItems < items.length && (
           <form action={fillPlanned} className="card bg-venda" style={{ gap: 10, padding: '14px 16px' }}>
             <input type="hidden" name="id" value={sessionId} />
-            <span className="strong" style={{ color: 'var(--guante)' }}>Estás cargando una sesión del {corta(date)}</span>
-            <span className="caption muted">Si la hiciste como dice la rutina, completala de una vez y después corregí lo que haya sido distinto.</span>
-            <button className="btn btn-outline" style={{ minHeight: 44, fontSize: 14 }}>Completar con la rutina</button>
+            <span className="strong" style={{ color: 'var(--guante)' }}>{finished ? `Corrigiendo la sesión del ${corta(date)}` : `Estás cargando una sesión del ${corta(date)}`}</span>
+            <span className="caption muted">{finished ? 'Marcá las series que faltaron, o completá lo que falta con el peso y las reps de la rutina.' : 'Si la hiciste como dice la rutina, completala de una vez y después corregí lo que haya sido distinto.'}</span>
+            <button className="btn btn-outline" style={{ minHeight: 44, fontSize: 14 }}>{finished ? 'Completar lo que falta' : 'Completar con la rutina'}</button>
           </form>
         )}
         <div aria-hidden="true" style={{ display: 'flex', gap: 4 }}>
@@ -155,7 +155,7 @@ export default function SessionRunner({ sessionId, date, past, items: initial, s
         ) : (
           <form action={finishSession} style={{ display: 'flex' }}>
             <input type="hidden" name="id" value={sessionId} />
-            <button className="btn btn-primary" style={{ flex: 1, minHeight: 64 }}>Terminar sesión · {doneItems} de {items.length}</button>
+            <button className="btn btn-primary" style={{ flex: 1, minHeight: 64 }}>{finished ? 'Guardar cambios' : `Terminar sesión · ${doneItems} de ${items.length}`}</button>
           </form>
         )}
       </nav>

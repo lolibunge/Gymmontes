@@ -149,12 +149,13 @@ export function parseRoutine(rows: string[][]): ParseResult {
   return { days, warnings };
 }
 
-/** Convierte un link de Google Sheets en el link de descarga CSV de esa pestaña. */
-export function sheetsCsvUrl(link: string): string | null {
+/** Links de descarga CSV de la pestaña de un link de Google Sheets (export y gviz, por si uno falla). */
+export function sheetsCsvUrls(link: string): string[] | null {
   const m = link.match(/docs\.google\.com\/spreadsheets\/d\/([a-zA-Z0-9_-]+)/);
   if (!m) return null;
   const gid = link.match(/[#&?]gid=(\d+)/)?.[1] ?? '0';
-  return `https://docs.google.com/spreadsheets/d/${m[1]}/export?format=csv&gid=${gid}`;
+  const base = `https://docs.google.com/spreadsheets/d/${m[1]}`;
+  return [`${base}/export?format=csv&gid=${gid}`, `${base}/gviz/tq?tqx=out:csv&gid=${gid}`];
 }
 
 export function slugify(name: string) {

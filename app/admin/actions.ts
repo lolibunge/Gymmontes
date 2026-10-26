@@ -3,7 +3,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireOwner, saveRoutine } from '@/lib/admin';
 import { one, q } from '@/lib/db';
-import { parseCSV, parseRoutine, sheetsCsvUrl, type ParsedDay } from '@/lib/routine-import';
+import { parseCSV, parseRoutine, sheetsCsvUrls, type ParsedDay } from '@/lib/routine-import';
 
 export async function markAttended(form: FormData) {
   await requireOwner();
@@ -34,19 +34,12 @@ export async function previewImport(_prev: PreviewState, form: FormData): Promis
     text = await file.text();
     source = file.name;
   } else if (link) {
-    const url = sheetsCsvUrl(link);
-    if (!url) return { error: 'Ese link no parece de Google Sheets. Copialo desde la barra del navegador con la planilla abierta.' };
-    try {
-      const r = await fetch(url, { redirect: 'follow', cache: 'no-store' });
-      const type = r.headers.get('content-type') || '';
-      if (!r.ok || type.includes('text/html')) {
-        return { error: 'No pudimos abrir la planilla. En Google Sheets tocá Compartir → "Cualquier persona con el enlace" → Lector, y probá de nuevo.' };
-      }
-      text = await r.text();
-      source = 'Google Sheets';
-    } catch {
-      return { error: 'No pudimos conectarnos con Google Sheets. Probá de nuevo o subí el archivo CSV.' };
-    }
+    const urls = sheetsCsvUrls(link);
+    if (!urls) return { error: 'Ese link no parece de Google Sheets. Copialo desde la barra del navegador con la planilla abierta.' };
+    const got = await fetchSheet(urls);
+    if ('error' in got) return { error: got.error };
+    text = got.text;
+    source = 'Google Sheets';
   } else {
     return { error: 'Subí un archivo CSV o pegá el link de Google Sheets.' };
   }
@@ -134,4 +127,34 @@ export async function drawWinner(form: FormData) {
   if (!w) return;
   await q('update raffles set winner_id = $2, closes_on = least(closes_on, current_date) where id = $1', [id, w.user_id]);
   revalidatePath('/', 'layout');
+}
+
+const DOWNLOAD_TIP = 'Mientras tanto, en Google Sheets: Archivo → Descargar → Valores separados por comas (.csv), con la pestaña Rutina abierta, y subí ese archivo acá abajo.';
+
+/** Prueba las dos formas de bajar la pestaña como CSV y devuelve la primera que trae datos. */
+async function fetchSheet(urls: string[]): Promise<{ text: string } | { error: string }> {
+  let status = 0;
+  let sawLogin = false;
+  for (const url of urls) {
+    try {
+      const r = await fetch(url, {
+        redirect: 'follow',
+        cache: 'no-store',
+        headers: { 'User-Agent': 'Mozilla/5.0 (GYM MONTES)', Accept: 'text/csv,text/plain,*/*' },
+      });
+      status = r.status;
+      const body = await r.text();
+      const html = /^\s*<(!doctype|html)/i.test(body);
+      console.log('[sheets]', url.replace(/\/d\/[^/]+/, '/d/…'), r.status, r.headers.get('content-type'), html ? 'html' : `${body.length} chars`);
+      if (r.ok && !html && body.trim()) return { text: body };
+      if (html && /accounts\.google\.com|ServiceLogin|signin/i.test(body)) sawLogin = true;
+    } catch (e) {
+      console.error('[sheets]', e);
+    }
+  }
+  if (sawLogin || status === 401 || status === 403) {
+    return { error: `Google no nos deja leer la planilla (pide iniciar sesión). Revisá Compartir → Acceso general → "Cualquier persona con el enlace" → Lector. Si usás una cuenta de empresa, puede que esa opción esté bloqueada. ${DOWNLOAD_TIP}` };
+  }
+  if (status === 404) return { error: `No encontramos esa pestaña. Abrí la pestaña Rutina y copiá el link de nuevo. ${DOWNLOAD_TIP}` };
+  return { error: `No pudimos abrir la planilla${status ? ` (Google respondió ${status})` : ''}. ${DOWNLOAD_TIP}` };
 }

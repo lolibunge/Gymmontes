@@ -230,16 +230,16 @@ async function Cobros({ guardado, error }: { guardado: boolean; error?: string }
 async function Maquinas() {
   const rows = await q<{ id: number; name: string; machine_code: string | null; steps: number; video: boolean; uso: number }>(
     `select e.id, e.name, e.machine_code, jsonb_array_length(e.steps) as steps, e.video_url is not null as video,
-            (select count(*)::int from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
+            (select count(distinct r.user_id)::int from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
               where i.exercise_id = e.id and r.active and not i.removed) as uso
        from exercises e where e.slug <> 'bicicleta'
-      order by (e.machine_code is null), e.machine_code, uso desc, e.name`);
+      order by (uso = 0), (jsonb_array_length(e.steps) > 0 and e.video_url is not null), uso desc, e.machine_code nulls last, e.name`);
   const faltan = rows.filter((r) => r.uso > 0 && (!r.steps || !r.video)).length;
   return (
     <section style={{ display: 'flex', flexDirection: 'column' }}>
       <p className="caption muted" style={{ paddingBottom: 10 }}>
         Cargá cómo se hace cada ejercicio y el video. Con un código de máquina (M01, M02…) se genera el QR para pegar en la máquina.
-        {faltan > 0 && <> <b style={{ color: 'var(--guante)' }}>{faltan} {faltan === 1 ? 'ejercicio de las rutinas no tiene' : 'ejercicios de las rutinas no tienen'} pasos o video.</b></>}
+        {faltan > 0 && <> <b style={{ color: 'var(--guante)' }}>{faltan} {faltan === 1 ? 'ejercicio que se usa no tiene' : 'ejercicios que se usan no tienen'} pasos o video.</b> Arriba están los que más socios usan: conviene empezar por esos.</>}
       </p>
       {rows.map((r) => (
         <Link key={r.id} href={`/admin/ejercicios/${r.id}`} className="list-row">
@@ -250,7 +250,7 @@ async function Maquinas() {
               <span className="strong">{r.name}</span>
               <span className="caption muted">
                 {r.steps ? `${r.steps} ${r.steps === 1 ? 'paso' : 'pasos'}` : <span style={{ color: 'var(--alerta)' }}>sin pasos</span>}
-                {' · '}{r.video ? 'video ✓' : 'sin video'}{r.uso ? ` · en ${r.uso} ${r.uso === 1 ? 'rutina' : 'rutinas'}` : ''}
+                {' · '}{r.video ? 'video ✓' : 'sin video'}{r.uso ? ` · lo ${r.uso === 1 ? 'usa 1 socio' : `usan ${r.uso} socios`}` : ' · nadie lo usa ahora'}
               </span>
             </span>
           </span>

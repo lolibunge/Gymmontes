@@ -36,7 +36,9 @@ export default async function Ficha({ params }: { params: { slug: string } }) {
         </div>
         {video?.kind === 'youtube' ? (
           <iframe src={video.src} title={`Video: ${ex.name}`} allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen
-            style={{ width: '100%', aspectRatio: '16 / 9', border: 0, borderRadius: 4, margin: '16px 0' }} />
+            style={video.vertical
+              ? { width: 'min(100%, 300px)', aspectRatio: '9 / 16', alignSelf: 'center', border: 0, borderRadius: 8, margin: '16px 0' }
+              : { width: '100%', aspectRatio: '16 / 9', border: 0, borderRadius: 4, margin: '16px 0' }} />
         ) : video?.kind === 'file' ? (
           <video src={video.src} controls playsInline style={{ width: '100%', borderRadius: 4, margin: '16px 0' }} />
         ) : video?.kind === 'link' ? (

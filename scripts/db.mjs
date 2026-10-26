@@ -345,8 +345,8 @@ async function ensureExerciseInfo(client) {
       `update exercises set
          muscle = coalesce(nullif(muscle, ''), $2),
          steps = case when jsonb_array_length(steps) = 0 then $3::jsonb else steps end,
-         video_url = coalesce(nullif(video_url, ''), $4)
-       where id = $1 and (muscle is null or muscle = '' or jsonb_array_length(steps) = 0 or video_url is null or video_url = '')`,
+         video_url = case when video_url is null or video_url = '' or video_url like '%youtube.com/results?%' then $4 else video_url end
+       where id = $1 and (muscle is null or muscle = '' or jsonb_array_length(steps) = 0 or video_url is null or video_url = '' or video_url like '%youtube.com/results?%')`,
       [r.id, info.muscle, JSON.stringify(info.steps), info.video]
     );
     n += u.rowCount;

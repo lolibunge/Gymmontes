@@ -1,9 +1,9 @@
 // Cómo se hace cada ejercicio de las rutinas de GYM MONTES: zona que trabaja, pasos
 // y una búsqueda de video en YouTube. Se cargan en el deploy solo donde la dueña
 // todavía no escribió nada (no pisa lo que ella cargue en Gym → Máquinas).
-// El video es una búsqueda en YouTube hasta que el gimnasio grabe los suyos.
+// Videos: shorts de YouTube en español elegidos por título; conviene que la entrenadora
+// los revise o los reemplace por videos grabados en el gimnasio.
 
-const yt = (q) => `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
 
 export const EXERCISE_INFO = [
   {
@@ -16,7 +16,7 @@ export const EXERCISE_INFO = [
       'Bajá hasta unos 90° de rodilla o hasta donde no se despegue la cadera.',
       'Subí empujando con todo el pie, sin trabar las rodillas arriba.',
     ],
-    video: yt('sentadilla hack máquina técnica'),
+    video: 'https://www.youtube.com/shorts/itmlCUc0P3k',
   },
   {
     names: ['Extensión de cuádriceps', 'Extensión de cuádriceps uni.', 'Extensión de cuádriceps unilateral', 'Extension de cuadriceps'],
@@ -28,7 +28,7 @@ export const EXERCISE_INFO = [
       'Sostené un segundo arriba y bajá lento, en 2 o 3 segundos.',
       'Si es unilateral: empezá por la pierna izquierda y hacé las mismas reps con las dos.',
     ],
-    video: yt('extensión de cuádriceps máquina técnica'),
+    video: 'https://www.youtube.com/shorts/RbAb6btRr-0',
   },
   {
     names: ['Step-up bajo con apoyo', 'Step-up', 'Step up'],
@@ -40,7 +40,7 @@ export const EXERCISE_INFO = [
       'Bajá despacio, controlando, hasta apoyar el otro pie.',
       'Hacé todas las reps de una pierna y después cambiá. Empezá por la izquierda.',
     ],
-    video: yt('step up con apoyo técnica'),
+    video: 'https://www.youtube.com/shorts/9XWxpd_kVko',
   },
   {
     names: ['Femoral prono', 'Femoral prono unilateral', 'Curl femoral acostado'],
@@ -52,7 +52,7 @@ export const EXERCISE_INFO = [
       'Flexioná la rodilla llevando el talón hacia la cola, sin levantar la cadera.',
       'Bajá lento, sin dejar caer el peso. Si es unilateral, empezá por la izquierda.',
     ],
-    video: yt('curl femoral acostado máquina técnica'),
+    video: 'https://www.youtube.com/shorts/6JQflLWhKfg',
   },
   {
     names: ['Press de pecho con mancuernas', 'Press plano con mancuernas'],
@@ -64,7 +64,7 @@ export const EXERCISE_INFO = [
       'Empujá hacia arriba hasta casi estirar los brazos, sin chocar las mancuernas.',
       'Bajá controlando, en 2 segundos.',
     ],
-    video: yt('press de pecho con mancuernas técnica'),
+    video: 'https://www.youtube.com/shorts/rzVYOes3YV4',
   },
   {
     names: ['Press inclinado con mancuernas'],
@@ -76,7 +76,7 @@ export const EXERCISE_INFO = [
       'Empujá hacia arriba y un poco hacia adentro, sin trabar los codos.',
       'Bajá lento y controlado.',
     ],
-    video: yt('press inclinado con mancuernas técnica'),
+    video: 'https://www.youtube.com/shorts/tXmgIuNO-3o',
   },
   {
     names: ['Remo en polea baja', 'Remo sentado en polea'],
@@ -88,7 +88,7 @@ export const EXERCISE_INFO = [
       'Juntá los omóplatos un segundo sin echar el torso hacia atrás.',
       'Volvé estirando los brazos despacio, sin perder la postura.',
     ],
-    video: yt('remo en polea baja técnica'),
+    video: 'https://www.youtube.com/shorts/AYbQCI4zs6g',
   },
   {
     names: ['Elevación de talones', 'Elevación de talones de pie', 'Gemelos'],
@@ -99,10 +99,10 @@ export const EXERCISE_INFO = [
       'Subí en puntas de pie lo más alto que puedas y sostené un segundo.',
       'Bajá lento hasta sentir el estiramiento del gemelo.',
     ],
-    video: yt('elevación de talones gemelos técnica'),
+    video: 'https://www.youtube.com/shorts/_R3TOH-vnF8',
   },
   {
-    names: ['Jalón al pecho', 'Jalón al pecho agarre neutro', 'Jalón al pecho agarre abierto'],
+    names: ['Jalón al pecho', 'Jalón al pecho agarre abierto'],
     muscle: 'Espalda · dorsales y bíceps',
     steps: [
       'Ajustá el apoyo para que las rodillas queden firmes debajo.',
@@ -111,7 +111,19 @@ export const EXERCISE_INFO = [
       'Tirá llevando los codos hacia abajo y atrás, hasta que la barra llegue al pecho alto.',
       'Subí despacio hasta estirar los brazos, sin soltar la tensión.',
     ],
-    video: yt('jalón al pecho técnica'),
+    video: 'https://www.youtube.com/shorts/3e-76jcA91w',
+  },
+  {
+    names: ['Jalón al pecho agarre neutro', 'Jalón al pecho agarre cerrado'],
+    muscle: 'Espalda · dorsales y bíceps',
+    steps: [
+      'Ajustá el apoyo para que las rodillas queden firmes debajo.',
+      'Agarrá el maneral con las palmas enfrentadas y los brazos estirados.',
+      'Pecho arriba y el torso apenas inclinado hacia atrás.',
+      'Tirá llevando los codos hacia abajo, pegados al cuerpo, hasta que el maneral llegue al pecho.',
+      'Subí despacio hasta estirar los brazos. En superserie con press de pecho: pasá directo al otro.',
+    ],
+    video: 'https://www.youtube.com/shorts/lZ-oUuV1Aj0',
   },
   {
     names: ['Press de hombros con mancuernas', 'Press militar con mancuernas'],
@@ -123,7 +135,7 @@ export const EXERCISE_INFO = [
       'Bajá controlando hasta la altura de las orejas.',
       'No arquees la zona lumbar: apretá el abdomen.',
     ],
-    video: yt('press de hombros con mancuernas sentado técnica'),
+    video: 'https://www.youtube.com/shorts/eHY09oHxzQg',
   },
   {
     names: ['Elevaciones laterales', 'Elevaciones laterales con mancuernas'],
@@ -135,7 +147,7 @@ export const EXERCISE_INFO = [
       'Bajá lento, en 2 o 3 segundos.',
       'Usá un peso que puedas controlar sin balancear el cuerpo.',
     ],
-    video: yt('elevaciones laterales técnica'),
+    video: 'https://www.youtube.com/shorts/uafHNJgATxg',
   },
   {
     names: ['Curl de bíceps con mancuernas', 'Curl de biceps'],
@@ -146,7 +158,7 @@ export const EXERCISE_INFO = [
       'Subí las mancuernas flexionando el codo, sin balancear el torso.',
       'Apretá arriba un segundo y bajá lento hasta estirar el brazo.',
     ],
-    video: yt('curl de bíceps con mancuernas técnica'),
+    video: 'https://www.youtube.com/shorts/pY1eUygY3rY',
   },
   {
     names: ['Curl martillo'],
@@ -158,7 +170,7 @@ export const EXERCISE_INFO = [
       'Bajá lento hasta estirar el brazo.',
       'En superserie con tríceps: hacé uno y pasá directo al otro.',
     ],
-    video: yt('curl martillo técnica'),
+    video: 'https://www.youtube.com/shorts/WOxdd51XqVU',
   },
   {
     names: ['Extensión de tríceps con cuerda', 'Extensión de tríceps en polea', 'Tríceps en polea'],
@@ -170,7 +182,7 @@ export const EXERCISE_INFO = [
       'Volvé despacio hasta que los antebrazos queden paralelos al piso.',
       'Los codos no se mueven: solo trabaja el antebrazo.',
     ],
-    video: yt('extensión de tríceps con cuerda en polea técnica'),
+    video: 'https://www.youtube.com/shorts/vpz7WXBJqFs',
   },
   {
     names: ['Crunch abdominal con carga', 'Crunch con disco'],
@@ -182,7 +194,7 @@ export const EXERCISE_INFO = [
       'Bajá lento sin apoyar del todo la cabeza.',
       'No tires del cuello; exhalá al subir.',
     ],
-    video: yt('crunch abdominal con peso técnica'),
+    video: 'https://www.youtube.com/shorts/p_PKNcQcjE0',
   },
   {
     names: ['Hip thrust', 'Hip thrust con barra'],
@@ -194,7 +206,7 @@ export const EXERCISE_INFO = [
       'Apretá los glúteos un segundo arriba, sin arquear la zona lumbar.',
       'Bajá controlando.',
     ],
-    video: yt('hip thrust técnica correcta'),
+    video: 'https://www.youtube.com/shorts/B9Me4gKiU-g',
   },
   {
     names: ['Peso muerto rumano con mancuernas', 'Peso muerto rumano'],
@@ -206,7 +218,7 @@ export const EXERCISE_INFO = [
       'Bajá hasta sentir el estiramiento atrás del muslo (más o menos a mitad de la pierna).',
       'Subí empujando la cadera hacia adelante y apretando los glúteos.',
     ],
-    video: yt('peso muerto rumano con mancuernas técnica'),
+    video: 'https://www.youtube.com/shorts/cWwfa0oniqI',
   },
   {
     names: ['Patada lateral en polea', 'Abducción en polea'],
@@ -218,7 +230,7 @@ export const EXERCISE_INFO = [
       'Volvé lento sin que el peso toque abajo.',
       'Hacé todas las reps y cambiá de pierna.',
     ],
-    video: yt('patada lateral en polea glúteo medio técnica'),
+    video: 'https://www.youtube.com/shorts/qPiYEMnGJ94',
   },
   {
     names: ['Prensa', 'Prensa de piernas'],
@@ -229,7 +241,7 @@ export const EXERCISE_INFO = [
       'Bajá controlado hasta 90° de rodilla, sin despegar la cadera.',
       'Empujá con los talones. No trabes las rodillas arriba.',
     ],
-    video: yt('prensa de piernas técnica'),
+    video: 'https://www.youtube.com/shorts/Z1sPLH3xSGA',
   },
   {
     names: ['Sentadilla búlgara con apoyo', 'Sentadilla búlgara'],
@@ -241,7 +253,7 @@ export const EXERCISE_INFO = [
       'Bajá la rodilla de atrás hacia el piso, con el torso derecho y la rodilla de adelante en línea con el pie.',
       'Subí empujando con el talón de adelante. Empezá por la pierna izquierda.',
     ],
-    video: yt('sentadilla búlgara técnica'),
+    video: 'https://www.youtube.com/shorts/KFXGzysScis',
   },
   {
     names: ['Plancha abdominal', 'Plancha'],
@@ -253,7 +265,7 @@ export const EXERCISE_INFO = [
       'Apretá abdomen y glúteos y respirá normal.',
       'Sostené el tiempo indicado; si se pierde la postura, cortá la serie.',
     ],
-    video: yt('plancha abdominal técnica correcta'),
+    video: 'https://www.youtube.com/shorts/xTpP37n8kSs',
   },
   {
     names: ['Bicicleta', 'Bicicleta fija'],
@@ -264,6 +276,6 @@ export const EXERCISE_INFO = [
       'Seguí los tramos del timer: suave, moderado o intenso según indique.',
       'Moderado: podés hablar con frases cortas. Intenso: te cuesta hablar.',
     ],
-    video: yt('bicicleta fija cómo regular el asiento'),
+    video: 'https://www.youtube.com/shorts/-R5KFBgTqJs',
   },
 ];

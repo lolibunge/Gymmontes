@@ -118,6 +118,7 @@ create table if not exists raffles (
   title text not null,
   closes_on date not null
 );
+alter table raffles add column if not exists winner_id int references users(id) on delete set null;
 create table if not exists raffle_entries (
   raffle_id int not null references raffles(id) on delete cascade,
   user_id int not null references users(id) on delete cascade,

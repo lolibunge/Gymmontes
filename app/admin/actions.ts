@@ -87,3 +87,51 @@ export async function saveEdits(form: FormData) {
   revalidatePath('/', 'layout');
   redirect(`/admin/socios/${userId}?editada=1`);
 }
+
+// ---------- Tu gym: novedades, reto y sorteo ----------
+const txt = (v: FormDataEntryValue | null) => String(v ?? '').trim();
+
+export async function addNews(form: FormData) {
+  await requireOwner();
+  const title = txt(form.get('title'));
+  if (!title) return;
+  const date = /^\d{4}-\d{2}-\d{2}$/.test(txt(form.get('date'))) ? txt(form.get('date')) : null;
+  await q('insert into news (date, title, body) values (coalesce($1::date, current_date), $2, $3)', [date, title, txt(form.get('body')) || null]);
+  revalidatePath('/', 'layout');
+}
+
+export async function deleteNews(form: FormData) {
+  await requireOwner();
+  await q('delete from news where id = $1', [Number(form.get('id'))]);
+  revalidatePath('/', 'layout');
+}
+
+export async function saveChallenge(form: FormData) {
+  await requireOwner();
+  const month = txt(form.get('month'));
+  const title = txt(form.get('title'));
+  const target = Number(form.get('target'));
+  if (!/^\d{4}-\d{2}$/.test(month) || !title || !target) return;
+  const ex = await one<{ id: number }>('select id from challenges where month = $1', [month]);
+  if (ex) await q('update challenges set title = $2, target = $3, description = $4 where id = $1', [ex.id, title, target, txt(form.get('description')) || null]);
+  else await q('insert into challenges (title, description, target, month) values ($1,$2,$3,$4)', [title, txt(form.get('description')) || null, target, month]);
+  revalidatePath('/', 'layout');
+}
+
+export async function createRaffle(form: FormData) {
+  await requireOwner();
+  const title = txt(form.get('title'));
+  const closes = txt(form.get('closes_on'));
+  if (!title || !/^\d{4}-\d{2}-\d{2}$/.test(closes)) return;
+  await q('insert into raffles (title, closes_on) values ($1, $2)', [title, closes]);
+  revalidatePath('/', 'layout');
+}
+
+export async function drawWinner(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  const w = await one<{ user_id: number }>('select user_id from raffle_entries where raffle_id = $1 order by random() limit 1', [id]);
+  if (!w) return;
+  await q('update raffles set winner_id = $2, closes_on = least(closes_on, current_date) where id = $1', [id, w.user_id]);
+  revalidatePath('/', 'layout');
+}

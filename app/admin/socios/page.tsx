@@ -6,7 +6,7 @@ import { Chevron } from '@/components/Icons';
 
 type S = { id: number; name: string; email: string; role: string; expires_on: string | null; last: string | null; has_routine: boolean; pending: boolean };
 
-export default async function Socios() {
+export default async function Socios({ searchParams }: { searchParams: { q?: string; f?: string } }) {
   await requireOwner();
   const rows = await q<S>(
     `select u.id, u.name, u.email, u.role,
@@ -24,21 +24,42 @@ export default async function Socios() {
     if (left <= 7) return { txt: `Vence en ${left} d`, cls: 'bg-venda', ink: 'var(--violeta-texto)' };
     return { txt: 'Al día', cls: 'bg-cuerda', ink: 'var(--guante)' };
   };
-  const atrasados = rows.filter((r) => r.expires_on && daysBetween(t, r.expires_on) < 0).length;
-  const porVencer = rows.filter((r) => r.expires_on && daysBetween(t, r.expires_on) >= 0 && daysBetween(t, r.expires_on) <= 7).length;
+  const isVencida = (r: S) => !!r.expires_on && daysBetween(t, r.expires_on) < 0;
+  const isVencer = (r: S) => !!r.expires_on && daysBetween(t, r.expires_on) >= 0 && daysBetween(t, r.expires_on) <= 7;
+  const atrasados = rows.filter(isVencida).length;
+  const porVencer = rows.filter(isVencer).length;
+  const sinRutina = rows.filter((r) => !r.has_routine && r.role !== 'duena').length;
+  const f = searchParams.f || 'todos';
+  const term = (searchParams.q || '').trim().toLowerCase();
+  const shown = rows
+    .filter((r) => (f === 'vencer' ? isVencer(r) : f === 'vencidas' ? isVencida(r) : f === 'sin-rutina' ? !r.has_routine && r.role !== 'duena' : true))
+    .filter((r) => !term || r.name.toLowerCase().includes(term) || r.email.toLowerCase().includes(term));
+  const chip = (id: string, label: string, n: number) => (
+    <Link href={`/admin/socios?f=${id}${term ? `&q=${encodeURIComponent(term)}` : ''}`} className="chip" aria-pressed={f === id}
+      style={{ display: 'inline-flex', alignItems: 'center', whiteSpace: 'nowrap', fontSize: 13 }}>{label} {n}</Link>
+  );
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <h1 className="title-lg">Socios</h1>
-      <section style={{ display: 'flex', gap: 12 }}>
-        <div className="card bg-cuerda" style={{ flex: 1, gap: 2 }}><span className="number">{rows.length}</span><span className="caption muted">cuentas</span></div>
-        <div className="card bg-venda" style={{ flex: 1, gap: 2 }}><span className="number brand">{porVencer}</span><span className="caption">por vencer (7 días)</span></div>
-        <div className="card bg-alerta" style={{ flex: 1, gap: 2 }}><span className="number">{atrasados}</span><span className="caption">vencidas</span></div>
-      </section>
+      <form style={{ display: 'flex' }}>
+        <input type="hidden" name="f" value={f} />
+        <label style={{ flex: 1 }}><span className="sr">Buscar socio</span>
+          <input className="input" type="search" name="q" defaultValue={searchParams.q ?? ''} placeholder="Buscar por nombre o email" />
+        </label>
+      </form>
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 2 }}>
+        {chip('todos', 'Todos', rows.length)}
+        {chip('vencer', 'Por vencer', porVencer)}
+        {chip('vencidas', 'Vencidas', atrasados)}
+        {chip('sin-rutina', 'Sin rutina', sinRutina)}
+      </div>
       <section>
-        {rows.map((r) => {
+        {shown.length === 0 && <p className="caption muted" style={{ padding: '12px 0' }}>No hay socios con ese filtro.</p>}
+        {shown.map((r) => {
           const c = cuota(r.expires_on);
           return (
-            <Link key={r.id} href={`/admin/socios/${r.id}`} className="list-row" style={{ gap: 14 }}>
+            <Link key={r.id} href={`/admin/socios/${r.id}`} className="list-row" style={{ gap: 12 }}>
+              <span aria-hidden="true" style={{ width: 36, height: 36, flexShrink: 0, borderRadius: 999, background: 'var(--cuerda)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 14 }}>{r.name.slice(0, 1).toUpperCase()}</span>
               <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
                 <span className="strong">{r.name}{r.role === 'duena' && <span className="muted" style={{ fontWeight: 500 }}> · dueña</span>}</span>
                 <span className="caption muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

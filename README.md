@@ -70,6 +70,11 @@ npm run dev
 
 ## Panel de la dueña (`/admin`)
 
+La dueña (la cuenta de `OWNER_EMAIL`) entra directo al panel y no ve la app de socio. Tiene su propio menú: **Resumen · Pedidos · Socios · Gym**.
+
+- **Resumen:** pedidos nuevos, socios, cuotas por vencer y vencidas, lo que hay que hacer hoy y la actividad de la semana.
+- **Gym:** publicar y borrar novedades, programar el reto del mes y el del mes siguiente, abrir un sorteo y sortear el ganador entre los anotados.
+
 - **Pedidos:** bandeja con los pedidos de rutina nuevos (con contador), objetivos, días y lesiones de cada socio.
 - **Socios:** lista con estado de cuota (al día, por vencer en 7 días, vencida), rutina y última sesión.
 - **Ficha del socio:** registrar pago (30 días desde la fecha elegida), ver su rutina, objetivos y lesiones.

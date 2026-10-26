@@ -19,6 +19,10 @@ export default async function Socio({ params, searchParams }: { params: { id: st
     one<{ goals: string[]; days: number | null; notes: string | null; status: string }>('select goals, days, notes, status from routine_requests where user_id = $1 order by id desc limit 1', [id]),
     q<{ paid_on: string }>(`select to_char(paid_on,'YYYY-MM-DD') as paid_on from memberships where user_id = $1 order by paid_on desc limit 4`, [id]),
   ]);
+  const st = await one<{ mes: number; last: string | null }>(
+    `select count(*) filter (where to_char(date,'YYYY-MM') = $2)::int as mes, to_char(max(date),'YYYY-MM-DD') as last
+       from sessions where user_id = $1 and finished_at is not null`, [id, today().slice(0, 7)]);
+  const subir = days.reduce((a, d) => a + d.items.filter((i) => i.raise_weight).length, 0);
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <BackBar href="/admin/socios" label="Volver a Socios" />
@@ -43,6 +47,12 @@ export default async function Socio({ params, searchParams }: { params: { id: st
           <button className="btn btn-primary" style={{ width: 'auto', flex: '0 0 auto', fontSize: 14 }}>Registrar 30 días</button>
         </form>
         {pagos.length > 1 && <span className="caption muted">Pagos anteriores: {pagos.slice(1).map((p) => corta(p.paid_on)).join(' · ')}</span>}
+      </section>
+
+      <section style={{ display: 'flex', gap: 10 }}>
+        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{st?.mes ?? 0}</span><span className="caption muted">sesiones este mes</span></div>
+        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{subir}</span><span className="caption muted">para subir peso</span></div>
+        <div className="card bg-cuerda" style={{ flex: 1, gap: 0, padding: 12 }}><span className="number" style={{ fontSize: 24 }}>{st?.last ? corta(st.last) : '—'}</span><span className="caption muted">última vez</span></div>
       </section>
 
       <section className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)' }}>

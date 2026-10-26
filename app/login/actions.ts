@@ -14,9 +14,9 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   const password = String(form.get('password') || '');
   const next = String(form.get('next') || '/');
   if (!email || !password) return { error: 'Completá tu email y tu contraseña.' };
-  let u: { id: number; pin_hash: string; auth_provider: string } | null;
+  let u: { id: number; pin_hash: string; auth_provider: string; role: string } | null;
   try {
-    u = await one('select id, pin_hash, auth_provider from users where email = $1', [email]);
+    u = await one('select id, pin_hash, auth_provider, role from users where email = $1', [email]);
   } catch (e) {
     console.error('[login]', e);
     return { error: NOT_CONNECTED };
@@ -24,10 +24,11 @@ export async function login(_prev: FormState, form: FormData): Promise<FormState
   if (u && u.auth_provider === 'google' && !u.pin_hash) return { error: 'Esta cuenta se creó con Google. Tocá "Continuar con Google".' };
   if (!u || !checkPin(password, u.pin_hash)) return { error: 'El email o la contraseña no coinciden.' };
   setSession(u.id);
-  if (isOwnerEmail(email)) {
-    await one(`update users set role = 'duena' where id = $1 and role <> 'duena'`, [u.id]);
-    if (next === '/') redirect('/admin');
+  if (isOwnerEmail(email) && u.role !== 'duena') {
+    await one(`update users set role = 'duena' where id = $1`, [u.id]);
+    u.role = 'duena';
   }
+  if (u.role === 'duena' && (next === '/' || !next.startsWith('/admin'))) redirect('/admin');
   redirect(safeNext(next));
 }
 

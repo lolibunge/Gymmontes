@@ -18,7 +18,7 @@ export default async function Pedidos() {
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <h1 className="title-lg">Pedidos de rutina</h1>
+        <h1 className="title-lg">Pedidos</h1>
         <p className="muted">{nuevos.length ? `${nuevos.length} ${nuevos.length === 1 ? 'pedido espera' : 'pedidos esperan'} su rutina.` : 'No hay pedidos pendientes.'}</p>
       </div>
       {nuevos.map((r) => (

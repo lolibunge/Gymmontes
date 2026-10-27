@@ -1,5 +1,5 @@
 // Service worker mínimo: hace la app instalable y guarda lo estático para abrir más rápido.
-const CACHE = 'gm-v1';
+const CACHE = 'gm-v1.1';
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(['/logo.jpg', '/icons/icon-192.png'])));
   self.skipWaiting();

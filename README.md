@@ -88,6 +88,17 @@ La dueña (la cuenta de `OWNER_EMAIL`) entra directo al panel y no ve la app de 
 - **Subir rutina:** desde un link de Google Sheets o un CSV con la plantilla `public/plantilla-rutina.csv`, con vista previa antes de guardar. Reemplaza la rutina anterior sin borrar el historial.
 - **Editar rutina:** series, reps, peso y la marca ▲ de subir peso.
 
+## Novedades v1.1
+
+- **Descanso entre series**: al marcar una serie arranca un descanso de 1:30 (−15/+15 o saltar). El descanso por defecto se cambia en la sesión y queda guardado en el teléfono.
+- **Nada se pierde**: kg, reps y series se guardan primero en el teléfono y se suben solos (`/api/sesion/sync`). Refrescar, ir para atrás o quedarse sin señal no borra nada; los toques responden al instante.
+- **Pantalla encendida** durante la sesión y el timer (Wake Lock, con video mudo de respaldo en iPhone). La campana se desbloquea con el primer toque.
+- **Cronómetro flotante**: el timer de la bici y el descanso siguen corriendo al cambiar de pantalla; se ven en una pastilla arriba y en una ventanita (Picture-in-Picture) sobre otras apps.
+- **Notas de prueba**: los socios anotan errores e ideas desde la sesión o en Perfil → Notas de prueba; la dueña las ve en `/admin/notas`.
+- El reto del mes cuenta solo días con al menos una serie hecha; una sesión sin series se puede descartar ("Salir sin guardar").
+- Se sacó el aviso "Toca subir el peso"; queda "¿Cómo te resultó el peso?".
+- Cerrar la ficha/video vuelve a la sesión en el mismo ejercicio.
+
 ## Próximo paso
 
 Publicar novedades, retos y sorteos desde el panel, subir los videos de las máquinas y recuperar la contraseña por email.

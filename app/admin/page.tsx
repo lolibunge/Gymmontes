@@ -37,6 +37,7 @@ export default async function Resumen() {
     one<{ n: number }>(`select count(*)::int as n from users where role = 'socio' and created_at >= $1::date`, [monday]),
   ]);
   const pagos = await pendingPayments();
+  const notas = await one<{ n: number; total: number }>(`select count(*) filter (where status = 'nueva')::int as n, count(*)::int as total from notes`);
   const porVencer = cuotas.filter((c) => c.left >= 0 && c.left <= 7);
   const vencidas = cuotas.filter((c) => c.left < 0);
   const urgentes = [...vencidas, ...porVencer.filter((c) => c.left <= 2)].slice(0, 4);
@@ -57,6 +58,14 @@ export default async function Resumen() {
         <Kpi n={porVencer.length} label="cuotas vencen en 7 días" href="/admin/socios?f=vencer" tone="venda" />
         <Kpi n={vencidas.length} label="cuotas vencidas" href="/admin/socios?f=vencidas" tone="alerta" />
       </div>
+
+      <Link href="/admin/notas" className={`card ${notas?.n ? 'bg-venda' : 'bg-cuerda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', color: 'var(--guante)' }}>
+        <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span className="label brand">Notas de prueba</span>
+          <span className="caption">{notas?.n ? `${notas.n} ${notas.n === 1 ? 'nota nueva' : 'notas nuevas'} de los socios` : notas?.total ? 'Sin notas nuevas' : 'Los socios todavía no dejaron notas'}</span>
+        </span>
+        <span className="link">Ver →</span>
+      </Link>
 
       <section>
         <h2 className="label" style={{ paddingBottom: 6 }}>Para hoy</h2>

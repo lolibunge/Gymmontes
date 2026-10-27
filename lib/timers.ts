@@ -1,0 +1,92 @@
+'use client';
+import { useEffect, useState } from 'react';
+
+/**
+ * Cronómetros que siguen corriendo aunque cambies de pantalla:
+ * - rest: el descanso entre series.
+ * - cardio: el timer por tramos de la bici.
+ * Se guardan en el teléfono con la hora de inicio, así refrescar o salir y volver no los corta.
+ * El motor (components/TimerDock.tsx) los hace sonar y muestra la ventanita.
+ */
+
+export type Seg = { label: string; min: number };
+export type RestTimer = { sessionId: number; step: number; label: string; endsAt: number; total: number };
+export type CardioTimer = {
+  sessionId: number; itemId: number; title: string; segments: Seg[];
+  base: number; since: number | null; lastIdx: number; done: boolean;
+};
+export type Timers = { rest: RestTimer | null; cardio: CardioTimer | null };
+
+const KEY = 'gm-timers';
+const EVT = 'gm-timers';
+const REST_KEY = 'gm-rest-s';
+export const DEFAULT_REST = 90;
+
+export function readTimers(): Timers {
+  try { return { rest: null, cardio: null, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { rest: null, cardio: null }; }
+}
+export function writeTimers(t: Timers) {
+  try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {}
+  window.dispatchEvent(new Event(EVT));
+}
+export function patchTimers(f: (t: Timers) => Timers) { writeTimers(f(readTimers())); }
+
+/** Segundos de descanso elegidos por la socia (1:30 si nunca lo cambió). */
+export function restPref(): number {
+  try { const n = Number(localStorage.getItem(REST_KEY)); return n >= 15 && n <= 600 ? n : DEFAULT_REST; } catch { return DEFAULT_REST; }
+}
+export function setRestPref(s: number) {
+  try { localStorage.setItem(REST_KEY, String(s)); } catch {}
+  window.dispatchEvent(new Event(EVT));
+}
+
+export function startRest(sessionId: number, step: number, label: string) {
+  const total = restPref();
+  patchTimers((t) => ({ ...t, rest: { sessionId, step, label, total, endsAt: Date.now() + total * 1000 } }));
+}
+/** Sumar o restar segundos solo al descanso en curso (el de siempre se cambia abajo, en "Descanso entre series"). */
+export function adjustRest(delta: number) {
+  patchTimers((t) => {
+    if (!t.rest) return t;
+    const endsAt = Math.max(Date.now() + 1000, t.rest.endsAt + delta * 1000);
+    return { ...t, rest: { ...t.rest, endsAt, total: Math.max(1, t.rest.total + delta) } };
+  });
+}
+export function stopRest() { patchTimers((t) => ({ ...t, rest: null })); }
+
+/* ---------- cardio ---------- */
+export function cardioEnds(segments: Seg[]) { let a = 0; return segments.map((s) => (a += s.min * 60)); }
+export function cardioElapsed(c: CardioTimer, now = Date.now()) {
+  const total = cardioEnds(c.segments).slice(-1)[0] ?? 0;
+  return Math.min(total, c.base + (c.since != null ? (now - c.since) / 1000 : 0));
+}
+export function cardioIdx(c: CardioTimer, elapsed: number) {
+  const ends = cardioEnds(c.segments);
+  const k = ends.findIndex((e) => elapsed < e);
+  return k === -1 ? c.segments.length - 1 : k;
+}
+
+/** Re-render cada `ms` mientras haya algún cronómetro andando, y cada vez que cambian. */
+export function useTimers(ms = 250) {
+  const [t, setT] = useState<Timers>({ rest: null, cardio: null });
+  const [now, setNow] = useState(0);
+  const [pref, setPref] = useState(DEFAULT_REST);
+  useEffect(() => {
+    const sync = () => { setT(readTimers()); setPref(restPref()); setNow(Date.now()); };
+    sync();
+    const onStorage = (e: StorageEvent) => { if (e.key === KEY || e.key === REST_KEY) sync(); };
+    window.addEventListener(EVT, sync);
+    window.addEventListener('storage', onStorage);
+    document.addEventListener('visibilitychange', sync);
+    return () => { window.removeEventListener(EVT, sync); window.removeEventListener('storage', onStorage); document.removeEventListener('visibilitychange', sync); };
+  }, []);
+  const active = !!t.rest || !!(t.cardio && t.cardio.since != null);
+  useEffect(() => {
+    if (!active) return;
+    const id = setInterval(() => setNow(Date.now()), ms);
+    return () => clearInterval(id);
+  }, [active, ms]);
+  return { timers: t, now: now || Date.now(), restPref: pref };
+}
+
+export const mmss = (s: number) => { const t = Math.max(0, Math.ceil(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };

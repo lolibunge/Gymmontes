@@ -72,7 +72,7 @@ async function Reto({ mes, next }: { mes: string; next: string }) {
   const cumplieron = actual
     ? await one<{ n: number; activos: number }>(
         `select count(*) filter (where c >= $2)::int as n, count(*)::int as activos from (
-           select user_id, count(*) as c from sessions where finished_at is not null and to_char(date,'YYYY-MM') = $1 group by user_id) s`, [mes, actual.target])
+           select user_id, count(distinct date) as c from sessions s where finished_at is not null and to_char(date,'YYYY-MM') = $1 and exists (select 1 from set_logs l where l.session_id = s.id and l.done) group by user_id) s`, [mes, actual.target])
     : null;
   const form = (month: string, data: typeof actual) => (
     <form action={saveChallenge} style={{ display: 'flex', flexDirection: 'column', gap: 10, paddingTop: 12 }}>

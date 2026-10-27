@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
-import { dayById, lastTime, raiseSignals } from '@/lib/data';
+import { dayById, lastTime } from '@/lib/data';
 import { addDays, today, weekdayOf } from '@/lib/dates';
 import SessionRunner, { type RunnerItem } from './SessionRunner';
 
@@ -18,8 +18,7 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
     'select item_id, set_no, kg::text as kg, reps, minutes, done from set_logs where session_id = $1',
     [s.id]
   );
-  const [raises, feels] = await Promise.all([
-    raiseSignals(user.id, day.items, s.date, s.id),
+  const [feels] = await Promise.all([
     q<{ item_id: number; feel: 'liviano' | 'justo' | 'pesado' }>('select item_id, feel from set_feel where session_id = $1', [s.id]),
   ]);
   const items: RunnerItem[] = await Promise.all(
@@ -29,7 +28,7 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
       const n = it.kind === 'cardio' ? 1 : it.sets ?? 3;
       return {
         id: it.id, kind: it.kind, name: it.name, slug: it.slug, sets: n, reps: it.reps, note: it.note,
-        rest: it.rest_s ?? 90, raise: it.raise_weight, up: raises.get(it.id) ?? null, feel: feels.find((f) => f.item_id === it.id)?.feel ?? null, segments: it.segments,
+        rest: it.rest_s ?? 90, raise: it.raise_weight, up: null, feel: feels.find((f) => f.item_id === it.id)?.feel ?? null, segments: it.segments,
         target: it.weight_kg !== null ? Number(it.weight_kg) : null,
         prev: prev && prev.sets.length ? { date: prev.date, kg: prev.sets[0].kg, reps: prev.sets.map((x) => x.reps ?? '—').join('-') } : null,
         rows: Array.from({ length: n }).map((_, i) => {

@@ -115,8 +115,10 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
       if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
       else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
+      // Última serie del último ejercicio: directo al enfriamiento (si hay)
+      else if (cool.length && i === items.length - 1) setTimeout(() => go(items.length), 600);
     }
-    if (patch.done === false && timers.rest?.sessionId === sessionId) { stopRest(); setRestOpen(false); }
+    if (patch.done === false && timers.rest?.sessionId === sessionId) { cancelRest.current = true; stopRest(); setRestOpen(false); }
   }
 
   async function finish() {
@@ -144,6 +146,19 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   const minutes = (it.segments ?? []).reduce((a, s) => a + s.min, 0);
   const rest = timers.rest?.sessionId === sessionId ? timers.rest : null;
   useEffect(() => { if (!rest) setRestOpen(false); }, [rest]);
+  // Cuando termina (o se salta) el descanso de la última serie, pasar solo al ejercicio siguiente.
+  // Si desmarcaste la serie, o ya te moviste a otro ejercicio, no se mueve.
+  const lastRest = useRef<typeof rest>(null);
+  const cancelRest = useRef(false);
+  useEffect(() => {
+    const prev = lastRest.current;
+    lastRest.current = rest;
+    if (prev && !rest) {
+      const cancelled = cancelRest.current;
+      cancelRest.current = false;
+      if (!cancelled && prev.step === i + 1) setI(clamp(prev.step));
+    }
+  }, [rest, i]);
   // Al terminar el descanso, si estaba en otro ejercicio, ir al que sigue
   const go = (k: number) => setI(clamp(k));
   const cardioT = timers.cardio && timers.cardio.itemId === it.id && timers.cardio.sessionId === sessionId ? timers.cardio : null;

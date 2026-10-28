@@ -163,6 +163,14 @@ create table if not exists news (
   title text not null,
   body text
 );
+create table if not exists notes (
+  id serial primary key,
+  user_id int not null references users(id) on delete cascade,
+  body text not null,
+  context text,
+  status text not null default 'nueva',
+  created_at timestamptz not null default now()
+);
 `;
 
 const EX = (slug, name, muscle, code, steps = []) => ({ slug, name, muscle, code, steps });
@@ -242,6 +250,7 @@ async function main() {
       await ensureOwners(client);
       await ensurePaySettings(client);
       await ensureExerciseInfo(client);
+      await cleanupV11(client);
       return;
     }
     console.log('[db] Cargando datos de ejemplo…');
@@ -285,14 +294,6 @@ async function main() {
         );
         if (!firstItem[d.weekday]) firstItem[d.weekday] = { day: dr.rows[0].id, item: ir.rows[0].id };
       }
-    }
-    // La sesión de ejemplo de la planilla: lunes 12/10, sentadilla hack 3 × 10 con 60 kg
-    const s = await client.query(
-      `insert into sessions (user_id, day_id, date, finished_at) values ($1,$2,'2026-10-12','2026-10-12 20:00-03') returning id`,
-      [uid, firstItem[1].day]
-    );
-    for (let i = 1; i <= 3; i++) {
-      await client.query('insert into set_logs (session_id, item_id, set_no, kg, reps, done) values ($1,$2,$3,60,10,true)', [s.rows[0].id, firstItem[1].item, i]);
     }
     await client.query(`insert into memberships (user_id, paid_on, expires_on) values ($1,'2026-10-12','2026-11-11')`, [uid]);
     await client.query(
@@ -369,6 +370,28 @@ async function ensurePaySettings(client) {
   for (const [k, v] of defaults) {
     await client.query('insert into gym_settings (key, value) values ($1,$2) on conflict (key) do nothing', [k, v]);
   }
+}
+
+/**
+ * v1.1: el reto del mes contaba sesiones que no se hicieron.
+ * - Borra la sesión de ejemplo del 12/10 que venía cargada en la cuenta demo.
+ * - Borra sesiones "terminadas" sin ninguna serie hecha.
+ * Corre una sola vez (queda marcado en gym_settings).
+ */
+async function cleanupV11(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'cleanup_v1_1'`);
+  if (done.rowCount) return;
+  const demo = await client.query(
+    `delete from sessions s using users u
+      where u.id = s.user_id and u.email = 'loli@gymmontes.uy' and s.date = '2026-10-12'
+        and s.finished_at = '2026-10-12 20:00-03'::timestamptz`
+  );
+  const empty = await client.query(
+    `delete from sessions s where s.finished_at is not null
+       and not exists (select 1 from set_logs l where l.session_id = s.id and l.done)`
+  );
+  await client.query(`insert into gym_settings (key, value) values ('cleanup_v1_1', now()::text) on conflict (key) do nothing`);
+  console.log(`[db] v1.1: ${demo.rowCount} sesión de ejemplo y ${empty.rowCount} sesiones vacías borradas.`);
 }
 
 async function ensureOwners(client) {

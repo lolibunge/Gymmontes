@@ -3,13 +3,13 @@ import { notFound } from 'next/navigation';
 import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
 import { DIAS } from '@/lib/dates';
-import { Close } from '@/components/Icons';
+import CloseButton from '@/components/CloseButton';
 import { weightLabel } from '@/lib/data';
 import { videoFor } from '@/lib/video';
 
 export const dynamic = 'force-dynamic';
 
-export default async function Ficha({ params }: { params: { slug: string } }) {
+export default async function Ficha({ params, searchParams }: { params: { slug: string }; searchParams: { volver?: string } }) {
   const user = await requireUser();
   const ex = await one<{ id: number; name: string; muscle: string | null; machine_code: string | null; steps: string[]; video_url: string | null }>(
     'select id, name, muscle, machine_code, steps, video_url from exercises where slug = $1',
@@ -32,7 +32,7 @@ export default async function Ficha({ params }: { params: { slug: string } }) {
               MÁQUINA {ex.machine_code.replace('M', '')}
             </span>
           ) : <span />}
-          <Link href="/rutina" className="icon-btn" aria-label="Cerrar" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><Close /></Link>
+          <CloseButton volver={searchParams.volver} style={{ background: '#2a2a2a', color: '#f5f5f5' }} />
         </div>
         {video?.kind === 'youtube' ? (
           <iframe src={video.src} title={`Video: ${ex.name}`} allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowFullScreen

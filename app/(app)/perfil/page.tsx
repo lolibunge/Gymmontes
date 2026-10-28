@@ -69,6 +69,7 @@ export default async function Perfil() {
         <Link href="/perfil/datos" className="list-row" style={{ borderTop: 0 }}><span style={{ fontWeight: 500 }}>Datos personales</span><Chevron /></Link>
         <Link href="/perfil/objetivos" className="list-row"><span style={{ fontWeight: 500 }}>Objetivos y lesiones</span><Chevron /></Link>
         <Link href="/perfil/historial" className="list-row"><span style={{ fontWeight: 500 }}>Historial de sesiones</span><Chevron /></Link>
+        <Link href="/perfil/notas" className="list-row"><span style={{ display: 'flex', flexDirection: 'column' }}><span style={{ fontWeight: 500 }}>Notas de prueba</span><span className="caption muted">Contanos qué falla o qué mejorarías</span></span><Chevron /></Link>
       </nav>
 
       <form action={setTheme} style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 4 }}>
@@ -90,7 +91,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
-      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.0 beta · Desarrollado por Loli Bunge</p>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.2 beta · Desarrollado por Loli Bunge</p>
     </main>
   );
 }

@@ -99,8 +99,9 @@ export async function membership(userId: number) {
 
 export async function monthCount(userId: number) {
   const r = await one<{ n: number }>(
-    `select count(*)::int as n from sessions where user_id = $1 and finished_at is not null
-       and to_char(date,'YYYY-MM') = $2`,
+    // Días distintos con una sesión terminada y al menos una serie hecha (repetir el mismo día no suma dos)
+    `select count(distinct s.date)::int as n from sessions s where s.user_id = $1 and s.finished_at is not null
+       and to_char(s.date,'YYYY-MM') = $2 and exists (select 1 from set_logs l where l.session_id = s.id and l.done)`,
     [userId, today().slice(0, 7)]
   );
   return r?.n ?? 0;

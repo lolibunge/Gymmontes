@@ -50,12 +50,33 @@ export async function saveCardio(sessionId: number, itemId: number, minutes: num
 export async function finishSession(form: FormData) {
   const user = await requireUser();
   const id = Number(form.get('id'));
+  // Solo cuenta como sesión hecha si hay al menos una serie (o el cardio) marcada
+  const any = await one<{ n: number }>('select count(*)::int as n from set_logs l join sessions s on s.id = l.session_id where s.id = $1 and s.user_id = $2 and l.done', [id, user.id]);
+  if (!any?.n) {
+    await q('delete from sessions where id = $1 and user_id = $2 and finished_at is null', [id, user.id]);
+    revalidatePath('/');
+    redirect('/rutina');
+  }
   await q('update sessions set finished_at = coalesce(finished_at, now()) where id = $1 and user_id = $2', [id, user.id]);
   revalidatePath('/');
   // Sesiones pasadas o corregidas: volver a la semana donde estaba
   const volver = String(form.get('volver') || '');
   if (volver.startsWith('/rutina?')) redirect(volver);
   redirect(`/perfil/historial?ok=${id}`);
+}
+
+/** Salir de una sesión empezada sin ninguna serie hecha: se borra y no cuenta para la semana ni el reto. */
+export async function discardSession(form: FormData) {
+  const user = await requireUser();
+  const id = Number(form.get('id'));
+  await q(
+    `delete from sessions s where s.id = $1 and s.user_id = $2 and s.finished_at is null
+       and not exists (select 1 from set_logs l where l.session_id = s.id and l.done)`,
+    [id, user.id]
+  );
+  revalidatePath('/');
+  const volver = String(form.get('volver') || '');
+  redirect(volver.startsWith('/rutina') ? volver : '/rutina');
 }
 
 /** Cargar una sesión que se hizo antes de tener la app (o que se olvidó registrar). */

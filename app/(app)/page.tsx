@@ -1,3 +1,4 @@
+import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
@@ -72,7 +73,7 @@ export default async function Inicio() {
             {hoy && (
               <form action={startSession} style={{ flex: 1.3, display: 'flex' }}>
                 <input type="hidden" name="dia" value={hoy.id} />
-                <button className="btn btn-primary" style={{ fontSize: 14 }}>{yaHoy ? 'Repetir' : 'Empezar'} <Arrow /></button>
+                <PendingButton style={{ fontSize: 14 }}>{yaHoy ? 'Repetir' : 'Empezar'} <Arrow /></PendingButton>
               </form>
             )}
           </div>

@@ -1,9 +1,12 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Close } from '@/components/Icons';
-import { bell } from '@/lib/bell';
-import { saveCardio } from '@/app/(app)/sesion/actions';
+import { openTimerPip, PipIcon } from '@/components/TimerDock';
+import { pipSupported } from '@/lib/pip';
+import { cardioElapsed, cardioEnds, cardioIdx, patchTimers, useTimers, type CardioTimer } from '@/lib/timers';
+import { useWakeLock } from '@/lib/wakelock';
+import { askNotifications, notifState } from '@/lib/bgnotify';
 
 type Seg = { label: string; min: number };
 
@@ -11,46 +14,44 @@ const fmt = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).p
 /** Duración de un tramo: 20′, 30″ o 1′30″ */
 const dur = (min: number) => { const t = Math.round(min * 60); const m = Math.floor(t / 60), sec = t % 60; return m && sec ? `${m}′${sec}″` : m ? `${m}′` : `${sec}″`; };
 
+/**
+ * Timer de cardio por tramos. El estado vive en lib/timers (con la hora de inicio guardada en el teléfono),
+ * así sigue corriendo si cerrás esta pantalla, refrescás o se bloquea el teléfono, y la campana la toca
+ * el motor general (components/TimerDock), que además muestra la pastilla arriba en otras pantallas.
+ */
 export default function TimerRunner({ sessionId, itemId, title, segments }: { sessionId: number; itemId: number; title: string; segments: Seg[] }) {
-  const ends = useMemo(() => { let a = 0; return segments.map((s) => (a += s.min * 60)); }, [segments]);
+  const ends = useMemo(() => cardioEnds(segments), [segments]);
   const total = ends[ends.length - 1] ?? 0;
-  const [elapsed, setElapsed] = useState(0);
-  const [running, setRunning] = useState(false);
-  const last = useRef<number | null>(null);
-  const segRef = useRef(0);
-  const saved = useRef(false);
+  const { timers, now } = useTimers(200);
+  const [pipOk, setPipOk] = useState(false);
+  const [perm, setPerm] = useState<string>('granted');
+  useEffect(() => { setPipOk(pipSupported()); setPerm(notifState()); }, []);
+  useWakeLock(true);
 
-  useEffect(() => {
-    if (!running) { last.current = null; return; }
-    let lock: any;
-    (navigator as any).wakeLock?.request('screen').then((l: any) => (lock = l)).catch(() => {});
-    const t = setInterval(() => {
-      const now = Date.now();
-      // El delta se calcula acá: dentro del updater, last.current ya valdría "now" y el tiempo no avanzaría.
-      const delta = last.current != null ? (now - last.current) / 1000 : 0;
-      last.current = now;
-      if (delta > 0) setElapsed((e) => Math.min(total, e + delta));
-    }, 250);
-    return () => { clearInterval(t); lock?.release?.(); };
-  }, [running, total]);
+  const mine = timers.cardio && timers.cardio.sessionId === sessionId && timers.cardio.itemId === itemId ? timers.cardio : null;
+  const fresh: CardioTimer = { sessionId, itemId, title, segments, base: 0, since: null, lastIdx: 0, done: false };
+  const c = mine ?? fresh;
+  const running = c.since != null && !c.done;
+  const elapsed = cardioElapsed(c, now);
+  const finished = c.done || (elapsed >= total && total > 0);
+  const idx = Math.min(segments.length - 1, cardioIdx(c, elapsed));
 
-  const idx = Math.min(segments.length - 1, ends.findIndex((e) => elapsed < e) === -1 ? segments.length - 1 : ends.findIndex((e) => elapsed < e));
-  const finished = elapsed >= total && total > 0;
-
-  useEffect(() => {
-    if (idx !== segRef.current) { segRef.current = idx; bell(); }
-  }, [idx]);
-  useEffect(() => {
-    if (finished && !saved.current) {
-      saved.current = true; setRunning(false); bell();
-      saveCardio(sessionId, itemId, Math.round(total / 60)).catch(() => {});
-    }
-  }, [finished, sessionId, itemId, total]);
+  function set(next: Partial<CardioTimer>) {
+    patchTimers((t) => {
+      const cur = t.cardio && t.cardio.sessionId === sessionId && t.cardio.itemId === itemId ? t.cardio : fresh;
+      return { ...t, cardio: { ...cur, title, segments, ...next } };
+    });
+  }
+  const toggle = () => (running ? set({ base: elapsed, since: null }) : set({ since: Date.now(), base: elapsed, lastIdx: idx }));
+  const jump = (k: number) => {
+    const kk = Math.max(0, Math.min(segments.length - 1, k));
+    const t = kk <= 0 ? 0 : ends[kk - 1];
+    set({ base: t, since: running ? Date.now() : null, lastIdx: kk });
+  };
 
   const segStart = idx === 0 ? 0 : ends[idx - 1];
   const left = finished ? 0 : ends[idx] - elapsed;
   const next = segments[idx + 1];
-  const jump = (k: number) => { const t = k <= 0 ? 0 : ends[k - 1]; setElapsed(t); segRef.current = Math.max(0, Math.min(segments.length - 1, k)); };
 
   return (
     <div className="t-oscuro" style={{ minHeight: '100dvh', background: '#0e0e0e', color: '#f5f5f5' }}>
@@ -60,7 +61,12 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
             <span className="label" style={{ color: '#d69ae8' }}>{title}</span>
             <span style={{ fontSize: 14, color: '#a3a3a3' }}>Tramo {idx + 1} de {segments.length}</span>
           </div>
-          <Link href={`/sesion/${sessionId}`} className="icon-btn" aria-label="Cerrar el timer" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><Close /></Link>
+          <span style={{ display: 'flex', gap: 8 }}>
+            {pipOk && !finished && (
+              <button type="button" onClick={() => openTimerPip()} className="icon-btn" aria-label="Ver el timer en una ventanita flotante" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><PipIcon /></button>
+            )}
+            <Link href={`/sesion/${sessionId}`} className="icon-btn" aria-label={running ? 'Cerrar el timer (sigue corriendo)' : 'Cerrar el timer'} style={{ background: '#2a2a2a', color: '#f5f5f5' }}><Close /></Link>
+          </span>
         </header>
 
         <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 16 }}>
@@ -110,7 +116,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
               <button type="button" onClick={() => jump(idx === 0 || elapsed - segStart > 3 ? idx : idx - 1)} aria-label="Volver al inicio del tramo" className="icon-btn" style={{ width: 56, height: 56, boxShadow: 'inset 0 0 0 1.5px #3a3a3a', color: '#f5f5f5' }}>
                 <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 4L7 10l9 6z" fill="#f5f5f5" /><rect x="4" y="4" width="2.5" height="12" fill="#f5f5f5" /></svg>
               </button>
-              <button type="button" onClick={() => setRunning(!running)} aria-label={running ? 'Pausar' : elapsed > 0 ? 'Seguir' : 'Empezar'} style={{ width: 88, height: 88, borderRadius: 999, border: 0, background: '#c26bd8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button type="button" onClick={toggle} aria-label={running ? 'Pausar' : elapsed > 0 ? 'Seguir' : 'Empezar'} style={{ width: 88, height: 88, borderRadius: 999, border: 0, background: '#c26bd8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {running
                   ? <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="7" y="5" width="5" height="18" fill="#111" /><rect x="16" y="5" width="5" height="18" fill="#111" /></svg>
                   : <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M8 4l16 10-16 10z" fill="#111" /></svg>}
@@ -120,7 +126,13 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
               </button>
             </div>
           )}
-          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida.</p>
+          {perm === 'default' && !finished && (
+            <button type="button" onClick={async () => { await askNotifications(); setPerm(notifState()); }}
+              style={{ border: 0, borderRadius: 4, padding: '12px 14px', background: '#251429', color: '#f5f5f5', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="strong" style={{ color: '#d69ae8' }}>🔔 Avisame aunque esté en otra app</span>
+            </button>
+          )}
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
         </section>
       </main>
     </div>

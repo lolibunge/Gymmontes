@@ -1,16 +1,25 @@
 'use client';
 import Link from 'next/link';
-import { useEffect, useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { bell } from '@/lib/bell';
 import { Back, Check, Chevron, Music } from '@/components/Icons';
-import { fillPlanned, finishSession, saveFeel, saveSet } from '../actions';
+import { discardSession, fillPlanned, finishSession } from '../actions';
 import { corta } from '@/lib/dates';
+import { clearDraft, flush, onPending, pendingCount, push, readDraft, writeDraft, type Draft } from '@/lib/outbox';
+import { adjustRest, mmss, setRestPref, startRest, stopRest, useTimers } from '@/lib/timers';
+import { useWakeLock } from '@/lib/wakelock';
+import { openTimerPip, PipIcon } from '@/components/TimerDock';
+import { pipSupported } from '@/lib/pip';
+import NoteSheet from '@/components/NoteSheet';
+import RestModal from '@/components/RestModal';
+import WarmPanel from './WarmPanel';
+import type { WarmStep } from '@/lib/warmup';
+import { askNotifications } from '@/lib/bgnotify';
 
 type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
 export type RunnerItem = {
   id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; sets: number; reps: string | null;
   note: string | null; rest: number; raise: boolean;
-  up: { dir: 'up' | 'down'; reason: 'planilla' | 'reps' | 'liviano' | 'pesado'; kg: number | null; next: number | null } | null;
   feel: 'liviano' | 'justo' | 'pesado' | null; segments: { label: string; min: number }[] | null;
   target: number | null; prev: { date: string; kg: string | null; reps: string } | null; rows: Row[];
 };
@@ -24,7 +33,7 @@ export function timedRange(reps: string | null): [number, number] | null {
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, startAtWarmup, warm, cool, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; startAtWarmup: boolean; warm: WarmStep[]; cool: WarmStep[]; spotify: string }) {
   const [items, setItems] = useState(() => initial.map((x) => {
     const tr = x.kind === 'ejercicio' ? timedRange(x.reps) : null;
     if (!tr) return x;
@@ -33,35 +42,126 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
     const goal = x.raise ? tr[1] : Math.min(tr[1], Math.max(tr[0], prevS));
     return { ...x, rows: x.rows.map((r) => (r.reps ? r : { ...r, reps: String(goal) })) };
   }));
-  const [i, setI] = useState(start);
-  const [, startT] = useTransition();
-  const it = items[i];
+  // i: -1 = calentamiento, 0..n-1 = ejercicios, n = enfriamiento
+  const lo = warm.length ? -1 : 0;
+  const hi = cool.length ? initial.length : initial.length - 1;
+  const clamp = (k: number) => Math.max(lo, Math.min(hi, k));
+  const [i, setI] = useState(() => clamp(startAtWarmup ? -1 : start));
+  const [phase, setPhase] = useState<{ warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado' }>({});
+  const [restOpen, setRestOpen] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [pending, setPending] = useState(0);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [note, setNote] = useState(false);
+  const [pipOk, setPipOk] = useState(false);
+  const { timers, now, restPref } = useTimers(250);
+  const inWarm = i === -1, inCool = i === items.length;
+  const it = items[Math.max(0, Math.min(items.length - 1, i))];
   const doneItems = items.filter((x) => x.rows.every((r) => r.done)).length;
+  const anyDone = items.some((x) => x.rows.some((r) => r.done));
+
+  useWakeLock(!past);
+
+  // Al abrir: recuperar lo que quedó guardado en el teléfono (refresco, atrás, sin señal…)
+  useEffect(() => {
+    const d = readDraft(sessionId);
+    if (d) {
+      setItems((prev) => prev.map((x) => {
+        const di = d.items[x.id];
+        if (!di) return x;
+        return {
+          ...x,
+          feel: di.feel !== undefined ? di.feel : x.feel,
+          rows: x.rows.map((r, j) => (di.rows[j] ? { ...r, kg: di.rows[j].kg, reps: di.rows[j].reps, done: di.rows[j].done } : r)),
+        };
+      }));
+      if (d.phase) {
+        setPhase(d.phase);
+        // Ya hizo o salteó el calentamiento: no volver a mostrarlo al abrir
+        if (d.phase.warm) setI((k) => (k === -1 ? 0 : k));
+      }
+    }
+    setReady(true);
+    setPipOk(pipSupported());
+    setPending(pendingCount(sessionId));
+    flush().catch(() => {});
+    return onPending(() => setPending(pendingCount(sessionId)));
+  }, [sessionId]);
+
+  // Guardar en el teléfono cada cambio
+  useEffect(() => {
+    if (!ready) return;
+    const d: Draft = { at: Date.now(), items: {}, phase };
+    for (const x of items) d.items[x.id] = { rows: x.rows.map((r) => ({ kg: r.kg, reps: r.reps, done: r.done })), feel: x.feel };
+    writeDraft(sessionId, d);
+  }, [items, ready, sessionId, phase]);
+
+  // Recordar en qué ejercicio estás (para volver al mismo después de ver el video o refrescar)
+  useEffect(() => {
+    try { const u = new URL(window.location.href); u.searchParams.set('paso', String(i)); window.history.replaceState(window.history.state, '', u.toString()); } catch {}
+  }, [i]);
 
   function update(rowIdx: number, patch: Partial<Row>, persist = false) {
-    setItems((prev) => {
-      const next = prev.map((x, k) => (k !== i ? x : { ...x, rows: x.rows.map((r, j) => (j === rowIdx ? { ...r, ...patch } : r)) }));
-      if (persist) {
-        const r = next[i].rows[rowIdx];
-        startT(() => { saveSet(sessionId, next[i].id, rowIdx + 1, num(r.kg), num(r.reps), r.done).catch(() => {}); });
-      }
-      return next;
-    });
+    const cur = items[i];
+    const row = { ...cur.rows[rowIdx], ...patch };
+    setItems((prev) => prev.map((x, k) => (k !== i ? x : { ...x, rows: x.rows.map((r, j) => (j === rowIdx ? { ...r, ...patch } : r)) })));
+    if (persist) push({ t: 'set', s: sessionId, i: cur.id, n: rowIdx + 1, kg: num(row.kg), reps: num(row.reps), done: row.done });
+    // Recién marcada como hecha: arranca el descanso (salvo que sea la última serie de la sesión)
+    if (patch.done === true && !cur.rows[rowIdx].done && !past) {
+      const restLeft = cur.rows.filter((r, j) => j !== rowIdx && !r.done).length;
+      const nextItem = items[i + 1];
+      const nextRow = cur.rows.findIndex((r, j) => j !== rowIdx && !r.done);
+      const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
+      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
+      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
+    }
+    if (patch.done === false && timers.rest?.sessionId === sessionId) { stopRest(); setRestOpen(false); }
+  }
+
+  async function finish() {
+    setBusy(true); setMsg(null);
+    const ok = await flush();
+    if (!ok) {
+      setBusy(false);
+      setMsg('Sin conexión. Tus series quedaron guardadas en el teléfono: probá de nuevo cuando tengas señal.');
+      return;
+    }
+    stopRest();
+    clearDraft(sessionId);
+    const fd = new FormData();
+    fd.set('id', String(sessionId));
+    if (past) fd.set('volver', back);
+    try { await finishSession(fd); } catch (e: any) {
+      // redirect() de Next se lanza como error: no es un error real
+      if (String(e?.digest ?? e?.message ?? '').includes('NEXT_REDIRECT')) throw e;
+      setBusy(false);
+      setMsg('No se pudo terminar la sesión. Probá de nuevo.');
+    }
   }
 
   const activeRow = it.rows.findIndex((r) => !r.done);
   const minutes = (it.segments ?? []).reduce((a, s) => a + s.min, 0);
+  const rest = timers.rest?.sessionId === sessionId ? timers.rest : null;
+  useEffect(() => { if (!rest) setRestOpen(false); }, [rest]);
+  // Al terminar el descanso, si estaba en otro ejercicio, ir al que sigue
+  const go = (k: number) => setI(clamp(k));
+  const cardioT = timers.cardio && timers.cardio.itemId === it.id && timers.cardio.sessionId === sessionId ? timers.cardio : null;
+  const cardioDone = it.rows[0]?.done || !!cardioT?.done;
 
   return (
     <main className="page tight" style={{ paddingBottom: 130 }}>
       <header style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="row">
           <Link href={back} className="icon-btn" aria-label="Volver a la rutina" style={{ marginLeft: -10 }}><Back /></Link>
-          <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · ejercicio {i + 1} de {items.length}</span>
-          <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify" style={{ marginRight: -10 }}><Music color="var(--violeta-texto)" size={20} /></a>
+          <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · {inWarm ? 'calentamiento' : inCool ? 'enfriamiento' : `ejercicio ${i + 1} de ${items.length}`}</span>
+          <span style={{ display: 'flex', marginRight: -10 }}>
+            <button type="button" className="icon-btn" aria-label="Escribir una nota de prueba" onClick={() => setNote(true)}><NoteIcon /></button>
+            <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify"><Music color="var(--violeta-texto)" size={20} /></a>
+          </span>
         </div>
         {past && doneItems < items.length && (
-          <form action={fillPlanned} className="card bg-venda" style={{ gap: 10, padding: '14px 16px' }}>
+          <form action={fillPlanned} onSubmit={() => clearDraft(sessionId)} className="card bg-venda" style={{ gap: 10, padding: '14px 16px' }}>
             <input type="hidden" name="id" value={sessionId} />
             <span className="strong" style={{ color: 'var(--guante)' }}>{finished ? `Corrigiendo la sesión del ${corta(date)}` : `Estás cargando una sesión del ${corta(date)}`}</span>
             <span className="caption muted">{finished ? 'Marcá las series que faltaron, o completá lo que falta con el peso y las reps de la rutina.' : 'Si la hiciste como dice la rutina, completala de una vez y después corregí lo que haya sido distinto.'}</span>
@@ -69,12 +169,21 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           </form>
         )}
         <div aria-hidden="true" style={{ display: 'flex', gap: 4 }}>
+          {warm.length > 0 && <span style={{ flex: 0.5, height: 4, background: inWarm ? 'var(--guante)' : phase.warm === 'hecho' ? 'var(--violeta)' : 'var(--linea)' }} />}
           {items.map((x, k) => (
             <span key={x.id} style={{ flex: 1, height: 4, background: x.rows.every((r) => r.done) ? 'var(--violeta)' : k === i ? 'var(--guante)' : 'var(--linea)' }} />
           ))}
+          {cool.length > 0 && <span style={{ flex: 0.5, height: 4, background: inCool ? 'var(--guante)' : phase.cool === 'hecho' ? 'var(--violeta)' : 'var(--linea)' }} />}
         </div>
       </header>
 
+      {inWarm || inCool ? (
+        <WarmPanel key={inWarm ? 'warm' : 'cool'} kind={inWarm ? 'calentamiento' : 'enfriamiento'} steps={inWarm ? warm : cool} status={inWarm ? phase.warm : phase.cool}
+          onDone={(st) => {
+            setPhase((p) => ({ ...p, [inWarm ? 'warm' : 'cool']: st }));
+            if (inWarm) go(0); else if (anyDone || finished) finish();
+          }} />
+      ) : (<>
       <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span className="label brand">{it.kind === 'cardio' ? 'Cardio' : `Ejercicio ${String(i + 1).padStart(2, '0')}`}</span>
         <h1 className="title">{it.name}</h1>
@@ -83,9 +192,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
             <>
               <span className="strong">{it.sets} × {it.reps}</span>
               <span aria-hidden="true" style={{ width: 4, height: 4, borderRadius: 999, background: 'var(--campana)' }} />
-              <span className="muted">Descanso {it.rest} s</span>
-              <span aria-hidden="true" style={{ width: 4, height: 4, borderRadius: 999, background: 'var(--campana)' }} />
-              <Link href={`/ejercicio/${it.slug}`} className="link">Ver cómo se hace</Link>
+              <Link href={`/ejercicio/${it.slug}?volver=${encodeURIComponent(`/sesion/${sessionId}?paso=${i}`)}`} className="link">Ver cómo se hace</Link>
             </>
           ) : (
             <span className="strong">{minutes} minutos por tramos</span>
@@ -94,13 +201,23 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         {it.note && <p className="caption muted">{it.note}</p>}
       </section>
 
+      {rest && (
+        <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
+          <span role="button" tabIndex={0} onClick={() => setRestOpen(true)} aria-label="Ver el descanso en pantalla completa" style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 100%', cursor: 'pointer' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO · TOCÁ PARA AGRANDAR</span>
+            <span className="rest-time">{mmss((rest.endsAt - now) / 1000)}</span>
+            <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
+          </span>
+          <button type="button" onClick={() => adjustRest(-15)} aria-label="15 segundos menos">−15</button>
+          <button type="button" onClick={() => adjustRest(15)} aria-label="15 segundos más">+15</button>
+          {pipOk && <button type="button" onClick={() => openTimerPip()} aria-label="Ver el descanso en una ventanita flotante"><PipIcon /></button>}
+          <button type="button" onClick={() => stopRest()}>Saltar</button>
+        </section>
+      )}
+
       {it.kind === 'ejercicio' ? (
         <section>
-          {timedRange(it.reps) ? (
-            it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">▲ Hoy probá con {timedRange(it.reps)![1]} segundos.</span></p>
-          ) : it.up && (
-            <RaiseCard up={it.up} rows={it.rows} onPick={(kg) => it.rows.forEach((r, j) => { if (!r.done) update(j, { kg }); })} />
-          )}
+          {timedRange(it.reps) && it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">▲ Hoy probá con {timedRange(it.reps)![1]} segundos.</span></p>}
           {it.prev ? (
             <div className="row bg-venda" style={{ padding: '12px 14px', borderRadius: 4, fontSize: 13, color: 'var(--violeta-texto)' }}>
               <span>La vez pasada ({corta(it.prev.date)})</span>
@@ -121,24 +238,24 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           </div>
           {it.rows.map((r, j) => {
             const isActive = j === activeRow;
-            const pending = !r.done && !isActive;
+            const pendingRow = !r.done && !isActive;
             const field: React.CSSProperties = {
               flex: 1, height: 48, padding: '0 14px', border: 0, borderRadius: 4, width: '100%',
               background: r.done ? 'var(--cuerda)' : 'var(--lona)',
               boxShadow: r.done ? 'none' : 'inset 0 0 0 1.5px var(--linea)',
               fontFamily: 'var(--font-archivo)', fontWeight: 700, fontSize: 20,
-              color: pending ? 'var(--campana)' : 'var(--guante)',
+              color: pendingRow ? 'var(--campana)' : 'var(--guante)',
             };
             return (
               <div key={j} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '6px 0' }}>
-                <span style={{ width: 40, fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 18, color: pending ? 'var(--campana)' : 'var(--guante)' }}>{j + 1}</span>
+                <span style={{ width: 40, fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 18, color: pendingRow ? 'var(--campana)' : 'var(--guante)' }}>{j + 1}</span>
                 <label style={{ flex: 1, display: 'flex' }}>
                   <span className="sr">Kg de la serie {j + 1}</span>
-                  <input style={field} inputMode="decimal" value={r.kg} placeholder="—" onChange={(e) => update(j, { kg: e.target.value })} onBlur={() => r.done && update(j, {}, true)} />
+                  <input style={field} inputMode="decimal" value={r.kg} placeholder="—" onChange={(e) => update(j, { kg: e.target.value })} onBlur={() => update(j, {}, true)} />
                 </label>
                 <label style={{ flex: 1, display: 'flex' }}>
                   <span className="sr">Reps de la serie {j + 1}</span>
-                  <input style={field} inputMode="numeric" value={r.reps} placeholder="—" onChange={(e) => update(j, { reps: e.target.value })} onBlur={() => r.done && update(j, {}, true)} />
+                  <input style={field} inputMode="numeric" value={r.reps} placeholder="—" onChange={(e) => update(j, { reps: e.target.value.replace(/[^\d]/g, '') })} onBlur={() => update(j, {}, true)} />
                 </label>
                 <button type="button" onClick={() => update(j, { done: !r.done }, true)}
                   aria-label={r.done ? `Serie ${j + 1} hecha. Tocá para desmarcar` : `Marcar serie ${j + 1} como hecha`} aria-pressed={r.done}
@@ -152,10 +269,11 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           })}
               <FeelPicker value={it.feel} onChange={(f) => {
                 setItems((prev) => prev.map((x, k) => (k === i ? { ...x, feel: f } : x)));
-                startT(() => { saveFeel(sessionId, it.id, f).catch(() => {}); });
+                push({ t: 'feel', s: sessionId, i: it.id, feel: f });
               }} />
             </>
           )}
+          {!past && <RestSetting value={restPref} />}
         </section>
       ) : (
         <section className="card bg-cuerda" style={{ gap: 12 }}>
@@ -163,35 +281,80 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
             {(it.segments ?? []).map((s, k) => <span key={k} style={{ flex: s.min, background: s.label === 'Suave' ? 'var(--linea)' : 'var(--violeta)' }} />)}
           </div>
           <p className="caption muted">{(it.segments ?? []).map((s) => `${Number.isInteger(s.min) ? `${s.min}′` : `${Math.round(s.min * 60)}″`} ${s.label.toLowerCase()}`).join(' · ')}</p>
-          {it.rows[0].done
+          {cardioDone
             ? <p className="strong brand">Hecho: {it.rows[0].minutes ?? minutes} minutos</p>
-            : <Link href={`/timer/${sessionId}/${it.id}`} className="btn btn-primary">Abrir timer <span aria-hidden="true">▶</span></Link>}
+            : <Link href={`/timer/${sessionId}/${it.id}`} className="btn btn-primary">{cardioT && (cardioT.since != null || cardioT.base > 0) ? 'Volver al timer' : 'Abrir timer'} <span aria-hidden="true">▶</span></Link>}
         </section>
       )}
 
-      <nav aria-label="Ejercicios" className="step-nav" style={{ gridTemplateColumns: i > 0 ? '56px 1fr' : '1fr' }}>
-        {i > 0 && (
-          <button type="button" className="step-btn step-prev" onClick={() => setI(i - 1)} aria-label={`Ejercicio anterior: ${items[i - 1].name}`}>
+      </>)}
+
+      {pending > 0 && <p className="caption muted" role="status">Guardado en el teléfono · {pending} {pending === 1 ? 'cambio' : 'cambios'} sin subir todavía</p>}
+      {msg && <p className="card bg-alerta caption strong" role="alert" style={{ padding: '10px 14px' }}>{msg}</p>}
+
+      <nav aria-label="Ejercicios" className="step-nav" style={{ gridTemplateColumns: i > lo ? '56px 1fr' : '1fr' }}>
+        {i > lo && (
+          <button type="button" className="step-btn step-prev" onClick={() => go(i - 1)} aria-label={`Anterior: ${i - 1 === -1 ? 'calentamiento' : items[i - 1].name}`}>
             <Back size={22} color="var(--guante)" />
           </button>
         )}
-        {i < items.length - 1 ? (
-          <button type="button" className="step-btn" onClick={() => setI(i + 1)}>
+        {i < hi ? (
+          <button type="button" className="step-btn" onClick={() => {
+            if (inWarm) setPhase((p) => ({ ...p, warm: p.warm ?? 'salteado' }));
+            go(i + 1);
+          }}>
             <span className="step-text">
-              <span className="step-label">Siguiente</span>
-              <span className="strong step-name">{items[i + 1].name}{items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}</span>
+              <span className="step-label">{inWarm ? 'Saltar calentamiento' : 'Siguiente'}</span>
+              <span className="strong step-name">{i + 1 === items.length ? 'Enfriamiento y estiramientos' : `${items[i + 1].name}${items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}`}</span>
             </span>
             <Chevron color="var(--guante)" size={20} />
           </button>
+        ) : anyDone || finished ? (
+          <button type="button" className="btn btn-primary" style={{ flex: 1, minHeight: 64 }} disabled={busy} onClick={finish}>
+            {busy ? 'Guardando…' : finished ? 'Guardar cambios' : `Terminar sesión · ${doneItems} de ${items.length}`}
+          </button>
         ) : (
-          <form action={finishSession} style={{ display: 'flex' }}>
+          <form action={discardSession} onSubmit={() => { clearDraft(sessionId); stopRest(); }} style={{ display: 'flex' }}>
             <input type="hidden" name="id" value={sessionId} />
-            {past && <input type="hidden" name="volver" value={back} />}
-            <button className="btn btn-primary" style={{ flex: 1, minHeight: 64 }}>{finished ? 'Guardar cambios' : `Terminar sesión · ${doneItems} de ${items.length}`}</button>
+            <input type="hidden" name="volver" value={back} />
+            <button className="btn btn-outline" style={{ flex: 1, minHeight: 64, justifyContent: 'center' }}>Salir sin guardar</button>
           </form>
         )}
       </nav>
+      {rest && restOpen && (
+        <RestModal rest={rest} now={now} pipOk={pipOk} onClose={() => setRestOpen(false)} onSkip={() => { stopRest(); setRestOpen(false); }} onAsk={askNotifications} />
+      )}
+      {note && <NoteSheet context={`Sesión ${corta(date)} · ${it.name}`} onClose={() => setNote(false)} />}
     </main>
+  );
+}
+
+const REST_OPTIONS = [60, 90, 120, 150, 180];
+
+/** "Descanso entre series": 1:30 por defecto, se puede cambiar y queda guardado en el teléfono. */
+function RestSetting({ value }: { value: number }) {
+  return (
+    <div className="row" style={{ paddingTop: 14, flexWrap: 'wrap' }}>
+      <span className="caption muted">Descanso entre series</span>
+      <span role="group" aria-label="Descanso entre series" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <button type="button" className="chip" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => setRestPref(Math.max(15, value - 15))} aria-label="15 segundos menos">−</button>
+        <select aria-label="Segundos de descanso" value={REST_OPTIONS.includes(value) ? value : ''} onChange={(e) => e.target.value && setRestPref(Number(e.target.value))}
+          style={{ height: 36, padding: '0 8px', border: 0, borderRadius: 4, background: 'var(--cuerda)', fontWeight: 700, fontFamily: 'var(--font-archivo)' }}>
+          {!REST_OPTIONS.includes(value) && <option value="">{mmss(value)}</option>}
+          {REST_OPTIONS.map((o) => <option key={o} value={o}>{mmss(o)}</option>)}
+        </select>
+        <button type="button" className="chip" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => setRestPref(Math.min(600, value + 15))} aria-label="15 segundos más">+</button>
+      </span>
+    </div>
+  );
+}
+
+function NoteIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+      <path d="M4 3h9l3 3v11H4z" stroke="var(--violeta-texto)" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M7 9h6M7 12.5h4" stroke="var(--violeta-texto)" strokeWidth="1.8" />
+    </svg>
   );
 }
 
@@ -204,10 +367,8 @@ function TimedSets({ rows, activeRow, update }: { rows: Row[]; activeRow: number
   useEffect(() => {
     if (!run) return;
     done.current = false;
-    let lock: any;
-    (navigator as any).wakeLock?.request('screen').then((l: any) => (lock = l)).catch(() => {});
     const t = setInterval(() => setNow(Date.now()), 200);
-    return () => { clearInterval(t); lock?.release?.(); };
+    return () => { clearInterval(t); };
   }, [run]);
 
   const left = run ? Math.max(0, Math.ceil((run.end - now) / 1000)) : 0;
@@ -296,40 +457,6 @@ function FeelPicker({ value, onChange }: { value: 'liviano' | 'justo' | 'pesado'
           </button>
         );
       })}
-    </div>
-  );
-}
-
-const STEPS = [0.5, 5, 10];
-const kgTxt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
-
-/** Aviso "▲ Toca subir" con las subas habituales: +0,5, +5 o +10 kg sobre el peso de la vez pasada. */
-function RaiseCard({ up, rows, onPick }: { up: NonNullable<RunnerItem['up']>; rows: Row[]; onPick: (kg: string) => void }) {
-  const base = up.kg;
-  const down = up.dir === 'down';
-  const current = rows.find((r) => !r.done)?.kg ?? rows[0]?.kg ?? '';
-  return (
-    <div className="card" style={{ padding: '12px 14px', marginBottom: 8, gap: 10, background: down ? 'var(--alerta-suave)' : 'var(--venda)' }}>
-      <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <span className="strong" style={{ fontSize: 14, color: down ? 'var(--alerta)' : 'var(--violeta-texto)' }}>{down ? '▼ Probá bajar un poco' : '▲ Toca subir el peso'}</span>
-        <span className="caption muted">{up.reason === 'pesado' ? 'La vez pasada te resultó pesado.' : up.reason === 'liviano' ? 'La vez pasada te resultó liviano.' : up.reason === 'reps' ? 'La vez pasada llegaste al máximo de reps en todas las series.' : 'Lo marcó la entrenadora en tu rutina.'}</span>
-      </span>
-      {base != null && base > 0 && (
-        <div role="group" aria-label={down ? 'Cuánto bajar' : 'Cuánto subir'} style={{ display: 'flex', gap: 8 }}>
-          {STEPS.filter((st) => !down || base - st > 0).map((st) => {
-            const kg = kgTxt(down ? base - st : base + st);
-            const on = current.replace('.', ',') === kg;
-            return (
-              <button key={st} type="button" aria-pressed={on} onClick={() => onPick(on ? kgTxt(base) : kg)}
-                style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0, padding: '6px 4px', border: 0, borderRadius: 4, cursor: 'pointer',
-                  background: on ? (down ? '#c62828' : 'var(--violeta)') : 'var(--lona)', color: on ? (down ? '#ffffff' : 'var(--on-violeta)') : 'var(--guante)', boxShadow: on ? 'none' : 'inset 0 0 0 1.5px var(--linea)' }}>
-                <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 15 }}>{down ? '−' : '+'}{kgTxt(st)}</span>
-                <span style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>{kg} kg</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

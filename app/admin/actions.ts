@@ -268,3 +268,12 @@ export async function saveExercise(form: FormData) {
   revalidatePath('/', 'layout');
   redirect(`/admin/ejercicios/${id}?guardado=1`);
 }
+
+// ---------- Calentamiento y enfriamiento ----------
+export async function saveWarmup(form: FormData) {
+  await requireOwner();
+  const clean = (k: string) => String(form.get(k) || '').split('\n').map((l) => l.trim()).filter(Boolean).slice(0, 20).join('\n').slice(0, 2000);
+  await setSetting('warmup_steps', clean('warmup'));
+  await setSetting('cooldown_steps', clean('cooldown'));
+  redirect('/admin/gym?tab=calentamiento&guardado=1');
+}

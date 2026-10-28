@@ -3,6 +3,7 @@ import '@fontsource-variable/archivo';
 import '@fontsource-variable/inter';
 import { currentUser } from '@/lib/auth';
 import SWRegister from '@/components/SWRegister';
+import TimerDock from '@/components/TimerDock';
 import './globals.css';
 
 
@@ -38,6 +39,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body>
         {children}
         <SWRegister />
+        <TimerDock />
       </body>
     </html>
   );

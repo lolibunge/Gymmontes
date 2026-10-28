@@ -54,7 +54,7 @@ export default async function Comunidad() {
               <span className="muted" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em' }}>{mesCorto(n.date)}</span>
             </span>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span className="strong">{n.title}</span>
+              <span className="strong" style={n.birthday ? { color: 'var(--violeta-texto)' } : undefined}>{n.title}</span>
               {n.body && <span className="caption muted">{n.body}</span>}
             </span>
           </div>

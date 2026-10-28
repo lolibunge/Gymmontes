@@ -4,9 +4,9 @@ import { saveDatos } from '../actions';
 import { one } from '@/lib/db';
 import ChangePassword from './ChangePassword';
 
-export default async function Datos({ searchParams }: { searchParams: { ok?: string } }) {
+export default async function Datos({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const u = await requireUser();
-  const pw = await one<{ has: boolean }>(`select pin_hash <> '' as has from users where id = $1`, [u.id]);
+  const pw = await one<{ has: boolean; show: boolean }>(`select pin_hash <> '' as has, show_birthday as show from users where id = $1`, [u.id]);
   return (
     <main className="page tight">
       <BackBar href="/perfil" label="Volver a Perfil" right={searchParams.ok ? <span className="strong brand" style={{ fontSize: 14 }}>Guardado</span> : null} />
@@ -18,6 +18,11 @@ export default async function Datos({ searchParams }: { searchParams: { ok?: str
           <label className="field" style={{ flex: 1 }}><span>Celular</span><input className="input" name="phone" type="tel" defaultValue={u.phone ?? ''} autoComplete="tel" placeholder="09…" /></label>
           <label className="field" style={{ flex: 1 }}><span>Nacimiento</span><input className="input" name="birth" defaultValue={u.birth ?? ''} placeholder="DD/MM/AAAA" /></label>
         </div>
+        {searchParams.error === 'nacimiento' && <p className="card bg-alerta caption strong" style={{ padding: '10px 14px' }}>No entendimos la fecha de nacimiento. Escribila como 05/03/1995.</p>}
+        <label style={{ display: 'flex', alignItems: 'flex-start', gap: 10, fontSize: 14 }}>
+          <input type="checkbox" name="show_birthday" defaultChecked={pw?.show ?? true} style={{ width: 20, height: 20, marginTop: 1, accentColor: 'var(--violeta)' }} />
+          <span>Saludarme en Novedades el día de mi cumpleaños <span className="caption muted" style={{ display: 'block' }}>Los demás socios ven tu nombre ese día. Tu fecha y tu edad no se muestran.</span></span>
+        </label>
         <h2 className="label" style={{ paddingTop: 6 }}>Cuerpo</h2>
         <div style={{ display: 'flex', gap: 12 }}>
           <label className="field" style={{ flex: 1 }}><span>Peso (kg)</span><input className="input" name="weight" inputMode="decimal" defaultValue={u.weight_kg ? Number(u.weight_kg) : ''} placeholder="—" /></label>

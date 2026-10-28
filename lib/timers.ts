@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
  */
 
 export type Seg = { label: string; min: number };
-export type RestTimer = { sessionId: number; step: number; label: string; endsAt: number; total: number };
+export type RestTimer = { sessionId: number; step: number; label: string; endsAt: number; total: number; startedAt: number; next?: string };
 export type CardioTimer = {
   sessionId: number; itemId: number; title: string; segments: Seg[];
   base: number; since: number | null; lastIdx: number; done: boolean;
@@ -40,9 +40,11 @@ export function setRestPref(s: number) {
   window.dispatchEvent(new Event(EVT));
 }
 
-export function startRest(sessionId: number, step: number, label: string) {
+/** `next`: lo que viene después, ej. "Serie 2 de 3 · 40 kg × 12". */
+export function startRest(sessionId: number, step: number, label: string, next?: string) {
   const total = restPref();
-  patchTimers((t) => ({ ...t, rest: { sessionId, step, label, total, endsAt: Date.now() + total * 1000 } }));
+  const now = Date.now();
+  patchTimers((t) => ({ ...t, rest: { sessionId, step, label, next, total, startedAt: now, endsAt: now + total * 1000 } }));
 }
 /** Sumar o restar segundos solo al descanso en curso (el de siempre se cambia abajo, en "Descanso entre series"). */
 export function adjustRest(delta: number) {

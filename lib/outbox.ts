@@ -100,7 +100,7 @@ export function startOutbox() {
 /* ---------- Borrador local de la sesión (lo que se ve en pantalla) ---------- */
 
 export type DraftRow = { kg: string; reps: string; done: boolean };
-export type Draft = { at: number; items: Record<number, { rows: DraftRow[]; feel?: 'liviano' | 'justo' | 'pesado' | null }> };
+export type Draft = { at: number; items: Record<number, { rows: DraftRow[]; feel?: 'liviano' | 'justo' | 'pesado' | null }>; phase?: { warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado' } };
 
 const dKey = (s: number) => `gm-sesion-${s}`;
 

@@ -142,3 +142,22 @@ a, button, input, label, [role='button'] { touch-action: manipulation; }
 .sheet { width: 100%; max-width: 480px; background: var(--lona); border-radius: 12px 12px 0 0; padding: 20px 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 12px; }
 body.has-dock { padding-top: calc(64px + env(safe-area-inset-top)); }
 body.has-dock .page, body.has-dock .app > section:first-child { padding-top: 12px !important; }
+
+/* v1.2 — respuesta inmediata al tocar */
+.btn:active:not(:disabled), .step-btn:active, .chip:active, .icon-btn:active, .rest-bar button:active, .rest-modal button:active { transform: scale(.97); filter: brightness(.92); }
+.btn, .step-btn, .chip, .icon-btn { transition: transform .06s ease, filter .06s ease; }
+.spinner { width: 16px; height: 16px; border-radius: 999px; border: 2px solid currentColor; border-right-color: transparent; animation: gm-spin .7s linear infinite; }
+@keyframes gm-spin { to { transform: rotate(360deg); } }
+.skel { border-radius: 4px; background: var(--cuerda); animation: gm-pulse 1.2s ease-in-out infinite; }
+
+/* Descanso en pantalla completa */
+.rest-modal { position: fixed; inset: 0; z-index: 55; background: #0e0e0e; color: #f5f5f5; display: flex; justify-content: center; }
+.rest-modal > div { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 24px; padding: calc(20px + env(safe-area-inset-top)) 24px calc(28px + env(safe-area-inset-bottom)); }
+.rest-big { font-family: var(--font-archivo), sans-serif; font-weight: 900; font-size: min(132px, 32vw); line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+.rest-modal .ctl { flex: 1; height: 56px; border: 0; border-radius: 4px; background: #2a2a2a; color: #f5f5f5; font-weight: 800; font-size: 17px; cursor: pointer; font-family: var(--font-archivo), sans-serif; }
+.ring { height: 8px; border-radius: 4px; background: #2a2a2a; overflow: hidden; }
+.ring > span { display: block; height: 100%; background: #c26bd8; transition: width .25s linear; }
+
+/* Calentamiento / enfriamiento */
+.warm-step { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--linea); }
+.warm-step:last-child { border-bottom: 1px solid var(--linea); }

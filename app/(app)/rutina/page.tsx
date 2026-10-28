@@ -1,3 +1,4 @@
+import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
 import { minutes, raiseSignals, todaysPlan, weightLabel } from '@/lib/data';
@@ -166,12 +167,12 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
               <form action={startPastSession}>
                 <input type="hidden" name="fecha" value={date} />
                 <input type="hidden" name="dia" value={day.id} />
-                <button className="btn btn-outline" style={{ width: '100%', background: 'var(--lona)' }}>Cargar la sesión del {corta(date)}</button>
+                <PendingButton className="btn btn-outline" style={{ width: '100%', background: 'var(--lona)' }}>Cargar la sesión del {corta(date)}</PendingButton>
               </form>
             ) : (
               <form action={startSession}>
                 <input type="hidden" name="dia" value={day.id} />
-                <button className="btn btn-primary">{isToday ? (doneDay ? 'Repetir sesión' : 'Empezar sesión') : `Entrenar ${DIAS[day.weekday].toLowerCase()} hoy`} <Arrow /></button>
+                <PendingButton>{isToday ? (doneDay ? 'Repetir sesión' : 'Empezar sesión') : `Entrenar ${DIAS[day.weekday].toLowerCase()} hoy`} <Arrow /></PendingButton>
               </form>
             )}
           </div>

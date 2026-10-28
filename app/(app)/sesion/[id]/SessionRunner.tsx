@@ -11,12 +11,15 @@ import { useWakeLock } from '@/lib/wakelock';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { pipSupported } from '@/lib/pip';
 import NoteSheet from '@/components/NoteSheet';
+import RestModal from '@/components/RestModal';
+import WarmPanel from './WarmPanel';
+import type { WarmStep } from '@/lib/warmup';
+import { askNotifications } from '@/lib/bgnotify';
 
 type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
 export type RunnerItem = {
   id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; sets: number; reps: string | null;
   note: string | null; rest: number; raise: boolean;
-  up: { dir: 'up' | 'down'; reason: 'planilla' | 'reps' | 'liviano' | 'pesado'; kg: number | null; next: number | null } | null;
   feel: 'liviano' | 'justo' | 'pesado' | null; segments: { label: string; min: number }[] | null;
   target: number | null; prev: { date: string; kg: string | null; reps: string } | null; rows: Row[];
 };
@@ -30,7 +33,7 @@ export function timedRange(reps: string | null): [number, number] | null {
 
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, startAtWarmup, warm, cool, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; startAtWarmup: boolean; warm: WarmStep[]; cool: WarmStep[]; spotify: string }) {
   const [items, setItems] = useState(() => initial.map((x) => {
     const tr = x.kind === 'ejercicio' ? timedRange(x.reps) : null;
     if (!tr) return x;
@@ -39,7 +42,13 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
     const goal = x.raise ? tr[1] : Math.min(tr[1], Math.max(tr[0], prevS));
     return { ...x, rows: x.rows.map((r) => (r.reps ? r : { ...r, reps: String(goal) })) };
   }));
-  const [i, setI] = useState(start);
+  // i: -1 = calentamiento, 0..n-1 = ejercicios, n = enfriamiento
+  const lo = warm.length ? -1 : 0;
+  const hi = cool.length ? initial.length : initial.length - 1;
+  const clamp = (k: number) => Math.max(lo, Math.min(hi, k));
+  const [i, setI] = useState(() => clamp(startAtWarmup ? -1 : start));
+  const [phase, setPhase] = useState<{ warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado' }>({});
+  const [restOpen, setRestOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -47,7 +56,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   const [note, setNote] = useState(false);
   const [pipOk, setPipOk] = useState(false);
   const { timers, now, restPref } = useTimers(250);
-  const it = items[i];
+  const inWarm = i === -1, inCool = i === items.length;
+  const it = items[Math.max(0, Math.min(items.length - 1, i))];
   const doneItems = items.filter((x) => x.rows.every((r) => r.done)).length;
   const anyDone = items.some((x) => x.rows.some((r) => r.done));
 
@@ -66,6 +76,11 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           rows: x.rows.map((r, j) => (di.rows[j] ? { ...r, kg: di.rows[j].kg, reps: di.rows[j].reps, done: di.rows[j].done } : r)),
         };
       }));
+      if (d.phase) {
+        setPhase(d.phase);
+        // Ya hizo o salteó el calentamiento: no volver a mostrarlo al abrir
+        if (d.phase.warm) setI((k) => (k === -1 ? 0 : k));
+      }
     }
     setReady(true);
     setPipOk(pipSupported());
@@ -77,10 +92,10 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   // Guardar en el teléfono cada cambio
   useEffect(() => {
     if (!ready) return;
-    const d: Draft = { at: Date.now(), items: {} };
+    const d: Draft = { at: Date.now(), items: {}, phase };
     for (const x of items) d.items[x.id] = { rows: x.rows.map((r) => ({ kg: r.kg, reps: r.reps, done: r.done })), feel: x.feel };
     writeDraft(sessionId, d);
-  }, [items, ready, sessionId]);
+  }, [items, ready, sessionId, phase]);
 
   // Recordar en qué ejercicio estás (para volver al mismo después de ver el video o refrescar)
   useEffect(() => {
@@ -96,10 +111,12 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
     if (patch.done === true && !cur.rows[rowIdx].done && !past) {
       const restLeft = cur.rows.filter((r, j) => j !== rowIdx && !r.done).length;
       const nextItem = items[i + 1];
-      if (restLeft > 0) startRest(sessionId, i, `${cur.name} · serie ${cur.rows.findIndex((r, j) => j !== rowIdx && !r.done) + 1} de ${cur.rows.length}`);
-      else if (nextItem) startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`);
+      const nextRow = cur.rows.findIndex((r, j) => j !== rowIdx && !r.done);
+      const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
+      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
+      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
     }
-    if (patch.done === false && timers.rest?.sessionId === sessionId) stopRest();
+    if (patch.done === false && timers.rest?.sessionId === sessionId) { stopRest(); setRestOpen(false); }
   }
 
   async function finish() {
@@ -126,6 +143,9 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   const activeRow = it.rows.findIndex((r) => !r.done);
   const minutes = (it.segments ?? []).reduce((a, s) => a + s.min, 0);
   const rest = timers.rest?.sessionId === sessionId ? timers.rest : null;
+  useEffect(() => { if (!rest) setRestOpen(false); }, [rest]);
+  // Al terminar el descanso, si estaba en otro ejercicio, ir al que sigue
+  const go = (k: number) => setI(clamp(k));
   const cardioT = timers.cardio && timers.cardio.itemId === it.id && timers.cardio.sessionId === sessionId ? timers.cardio : null;
   const cardioDone = it.rows[0]?.done || !!cardioT?.done;
 
@@ -134,7 +154,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       <header style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <div className="row">
           <Link href={back} className="icon-btn" aria-label="Volver a la rutina" style={{ marginLeft: -10 }}><Back /></Link>
-          <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · ejercicio {i + 1} de {items.length}</span>
+          <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · {inWarm ? 'calentamiento' : inCool ? 'enfriamiento' : `ejercicio ${i + 1} de ${items.length}`}</span>
           <span style={{ display: 'flex', marginRight: -10 }}>
             <button type="button" className="icon-btn" aria-label="Escribir una nota de prueba" onClick={() => setNote(true)}><NoteIcon /></button>
             <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify"><Music color="var(--violeta-texto)" size={20} /></a>
@@ -149,12 +169,21 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           </form>
         )}
         <div aria-hidden="true" style={{ display: 'flex', gap: 4 }}>
+          {warm.length > 0 && <span style={{ flex: 0.5, height: 4, background: inWarm ? 'var(--guante)' : phase.warm === 'hecho' ? 'var(--violeta)' : 'var(--linea)' }} />}
           {items.map((x, k) => (
             <span key={x.id} style={{ flex: 1, height: 4, background: x.rows.every((r) => r.done) ? 'var(--violeta)' : k === i ? 'var(--guante)' : 'var(--linea)' }} />
           ))}
+          {cool.length > 0 && <span style={{ flex: 0.5, height: 4, background: inCool ? 'var(--guante)' : phase.cool === 'hecho' ? 'var(--violeta)' : 'var(--linea)' }} />}
         </div>
       </header>
 
+      {inWarm || inCool ? (
+        <WarmPanel key={inWarm ? 'warm' : 'cool'} kind={inWarm ? 'calentamiento' : 'enfriamiento'} steps={inWarm ? warm : cool} status={inWarm ? phase.warm : phase.cool}
+          onDone={(st) => {
+            setPhase((p) => ({ ...p, [inWarm ? 'warm' : 'cool']: st }));
+            if (inWarm) go(0); else if (anyDone || finished) finish();
+          }} />
+      ) : (<>
       <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <span className="label brand">{it.kind === 'cardio' ? 'Cardio' : `Ejercicio ${String(i + 1).padStart(2, '0')}`}</span>
         <h1 className="title">{it.name}</h1>
@@ -174,8 +203,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
 
       {rest && (
         <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
-          <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 100%' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO</span>
+          <span role="button" tabIndex={0} onClick={() => setRestOpen(true)} aria-label="Ver el descanso en pantalla completa" style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 100%', cursor: 'pointer' }}>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO · TOCÁ PARA AGRANDAR</span>
             <span className="rest-time">{mmss((rest.endsAt - now) / 1000)}</span>
             <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
           </span>
@@ -258,20 +287,25 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         </section>
       )}
 
+      </>)}
+
       {pending > 0 && <p className="caption muted" role="status">Guardado en el teléfono · {pending} {pending === 1 ? 'cambio' : 'cambios'} sin subir todavía</p>}
       {msg && <p className="card bg-alerta caption strong" role="alert" style={{ padding: '10px 14px' }}>{msg}</p>}
 
-      <nav aria-label="Ejercicios" className="step-nav" style={{ gridTemplateColumns: i > 0 ? '56px 1fr' : '1fr' }}>
-        {i > 0 && (
-          <button type="button" className="step-btn step-prev" onClick={() => setI(i - 1)} aria-label={`Ejercicio anterior: ${items[i - 1].name}`}>
+      <nav aria-label="Ejercicios" className="step-nav" style={{ gridTemplateColumns: i > lo ? '56px 1fr' : '1fr' }}>
+        {i > lo && (
+          <button type="button" className="step-btn step-prev" onClick={() => go(i - 1)} aria-label={`Anterior: ${i - 1 === -1 ? 'calentamiento' : items[i - 1].name}`}>
             <Back size={22} color="var(--guante)" />
           </button>
         )}
-        {i < items.length - 1 ? (
-          <button type="button" className="step-btn" onClick={() => setI(i + 1)}>
+        {i < hi ? (
+          <button type="button" className="step-btn" onClick={() => {
+            if (inWarm) setPhase((p) => ({ ...p, warm: p.warm ?? 'salteado' }));
+            go(i + 1);
+          }}>
             <span className="step-text">
-              <span className="step-label">Siguiente</span>
-              <span className="strong step-name">{items[i + 1].name}{items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}</span>
+              <span className="step-label">{inWarm ? 'Saltar calentamiento' : 'Siguiente'}</span>
+              <span className="strong step-name">{i + 1 === items.length ? 'Enfriamiento y estiramientos' : `${items[i + 1].name}${items[i + 1].kind === 'ejercicio' ? ` · ${items[i + 1].sets} × ${items[i + 1].reps}` : ''}`}</span>
             </span>
             <Chevron color="var(--guante)" size={20} />
           </button>
@@ -287,6 +321,9 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           </form>
         )}
       </nav>
+      {rest && restOpen && (
+        <RestModal rest={rest} now={now} pipOk={pipOk} onClose={() => setRestOpen(false)} onSkip={() => { stopRest(); setRestOpen(false); }} onAsk={askNotifications} />
+      )}
       {note && <NoteSheet context={`Sesión ${corta(date)} · ${it.name}`} onClose={() => setNote(false)} />}
     </main>
   );

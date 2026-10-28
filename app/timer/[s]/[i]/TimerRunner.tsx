@@ -6,6 +6,7 @@ import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { pipSupported } from '@/lib/pip';
 import { cardioElapsed, cardioEnds, cardioIdx, patchTimers, useTimers, type CardioTimer } from '@/lib/timers';
 import { useWakeLock } from '@/lib/wakelock';
+import { askNotifications, notifState } from '@/lib/bgnotify';
 
 type Seg = { label: string; min: number };
 
@@ -23,7 +24,8 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const total = ends[ends.length - 1] ?? 0;
   const { timers, now } = useTimers(200);
   const [pipOk, setPipOk] = useState(false);
-  useEffect(() => setPipOk(pipSupported()), []);
+  const [perm, setPerm] = useState<string>('granted');
+  useEffect(() => { setPipOk(pipSupported()); setPerm(notifState()); }, []);
   useWakeLock(true);
 
   const mine = timers.cardio && timers.cardio.sessionId === sessionId && timers.cardio.itemId === itemId ? timers.cardio : null;
@@ -124,7 +126,13 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
               </button>
             </div>
           )}
-          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba.</p>
+          {perm === 'default' && !finished && (
+            <button type="button" onClick={async () => { await askNotifications(); setPerm(notifState()); }}
+              style={{ border: 0, borderRadius: 4, padding: '12px 14px', background: '#251429', color: '#f5f5f5', textAlign: 'left', cursor: 'pointer' }}>
+              <span className="strong" style={{ color: '#d69ae8' }}>🔔 Avisame aunque esté en otra app</span>
+            </button>
+          )}
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
         </section>
       </main>
     </div>

@@ -2,12 +2,13 @@ import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
 import { addDays, corta, mesLargo, today } from '@/lib/dates';
-import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge, saveCobros } from '../actions';
+import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge, saveCobros, saveWarmup } from '../actions';
+import { warmupSettings } from '@/lib/warmup';
 import { METHOD_LABEL, paySettings, pendingPayments } from '@/lib/payments';
 import PaymentCard from '../PaymentCard';
 
-const TABS = ['cobros', 'maquinas', 'novedades', 'reto', 'sorteo'] as const;
-const LABEL: Record<string, string> = { cobros: 'Cobros', maquinas: 'Máquinas', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
+const TABS = ['cobros', 'maquinas', 'calentamiento', 'novedades', 'reto', 'sorteo'] as const;
+const LABEL: Record<string, string> = { cobros: 'Cobros', maquinas: 'Máquinas', calentamiento: 'Calentamiento', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
 
 export default async function Gym({ searchParams }: { searchParams: { tab?: string; guardado?: string; error?: string } }) {
   await requireOwner();
@@ -28,6 +29,7 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
       </nav>
       {tab === 'cobros' && <Cobros guardado={!!searchParams.guardado} error={searchParams.error} />}
       {tab === 'maquinas' && <Maquinas />}
+      {tab === 'calentamiento' && <Calentamiento guardado={!!searchParams.guardado} />}
       {tab === 'novedades' && <Novedades />}
       {tab === 'reto' && <Reto mes={mes} next={next} />}
       {tab === 'sorteo' && <Sorteo hoy={t} />}
@@ -271,5 +273,23 @@ async function Maquinas() {
         </Link>
       ))}
     </section>
+  );
+}
+
+async function Calentamiento({ guardado }: { guardado: boolean }) {
+  const w = await warmupSettings();
+  const area = (name: string, label: string, value: string) => (
+    <label className="field"><span>{label}</span>
+      <textarea className="input" name={name} rows={7} defaultValue={value} style={{ fontFamily: 'ui-monospace, monospace', fontSize: 14 }} />
+    </label>
+  );
+  return (
+    <form action={saveWarmup} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <p className="caption muted">Los socios lo ven al empezar y al terminar cada sesión, con un timer por paso. Lo pueden saltear. Una línea por paso: <span className="strong">Nombre | 30 s</span> o <span className="strong">Nombre | 5 min</span>. Sin tiempo, se marca a mano.</p>
+      {guardado && <p className="card bg-venda caption strong" style={{ padding: '10px 14px' }}>Guardado. Ya lo ven los socios.</p>}
+      {area('warmup', 'Calentamiento', w.warmText)}
+      {area('cooldown', 'Enfriamiento', w.coolText)}
+      <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>Guardar</button>
+    </form>
   );
 }

@@ -1,3 +1,4 @@
+import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
 import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
@@ -60,7 +61,7 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
                 </select>
               </label>
             </div>
-            <button className="btn btn-primary" style={{ minHeight: 48 }}>Cargar sesión <span aria-hidden="true">→</span></button>
+            <PendingButton style={{ minHeight: 48 }}>Cargar sesión <span aria-hidden="true">→</span></PendingButton>
           </form>
         </details>
       )}

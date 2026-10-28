@@ -88,6 +88,13 @@ La dueña (la cuenta de `OWNER_EMAIL`) entra directo al panel y no ve la app de 
 - **Subir rutina:** desde un link de Google Sheets o un CSV con la plantilla `public/plantilla-rutina.csv`, con vista previa antes de guardar. Reemplaza la rutina anterior sin borrar el historial.
 - **Editar rutina:** series, reps, peso y la marca ▲ de subir peso.
 
+## Novedades v1.2
+
+- **Calentamiento y enfriamiento** guiados al principio y al final de cada sesión, con un timer por paso. Se pueden saltear. La entrenadora los edita en Gym → Calentamiento.
+- **Descanso en pantalla completa**: se abre al marcar una serie y muestra lo que sigue. Con la X se achica a la barra de siempre, y el descanso sigue corriendo.
+- **Avisos aunque estés en otra app**: si te vas a Spotify o WhatsApp con el descanso o la bici andando, aparece una notificación fija ("Descanso · termina 08:42") y, a la hora justa, otra que suena y vibra (`public/sw.js`, `lib/bgnotify.ts`). Pide permiso una vez desde el descanso o el timer.
+- **Más rápido**: "la vez pasada" se calcula en una sola consulta, las pantallas muestran un esqueleto apenas tocás y los botones de Empezar responden al instante.
+
 ## Novedades v1.1
 
 - **Descanso entre series**: al marcar una serie arranca un descanso de 1:30 (−15/+15 o saltar). El descanso por defecto se cambia en la sesión y queda guardado en el teléfono.

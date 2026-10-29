@@ -115,8 +115,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
       // Ventanita flotante en cada descanso (si la usó alguna vez), para verlo desde cualquier app
       if (pipAuto() && pipSupported() && !pipOpen()) openTimerPip().catch(() => {});
-      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
-      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
+      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); }
+      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); }
       // Última serie del último ejercicio: directo al enfriamiento (si hay)
       else if (cool.length && i === items.length - 1) setTimeout(() => go(items.length), 600);
     }
@@ -221,10 +221,13 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
 
       {rest && (
         <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
-          <span role="button" tabIndex={0} onClick={() => setRestOpen(true)} aria-label="Ver el descanso en pantalla completa" style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 100%', cursor: 'pointer' }}>
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO · TOCÁ PARA AGRANDAR</span>
-            <span className="rest-time" style={isEnding((rest.endsAt - now) / 1000) ? { color: ENDING_RED } : undefined}>{mmss((rest.endsAt - now) / 1000)}</span>
-            <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
+          <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 100%' }}>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO</span>
+              <span className="rest-time" style={isEnding((rest.endsAt - now) / 1000) ? { color: ENDING_RED } : undefined}>{mmss((rest.endsAt - now) / 1000)}</span>
+              <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
+            </span>
+            <button type="button" onClick={() => setRestOpen(true)} aria-label="Ver el descanso en pantalla completa" style={{ flex: '0 0 auto', width: 44 }}><ExpandIcon /></button>
           </span>
           <button type="button" onClick={() => adjustRest(-15)} aria-label="15 segundos menos">−15</button>
           <button type="button" onClick={() => adjustRest(15)} aria-label="15 segundos más">+15</button>
@@ -375,6 +378,14 @@ function RestSetting({ value, pipOk }: { value: number; pipOk: boolean }) {
       </label>
     )}
     </>
+  );
+}
+
+function ExpandIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+      <path d="M2.5 7V2.5H7M11 2.5h4.5V7M15.5 11v4.5H11M7 15.5H2.5V11" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
   );
 }
 

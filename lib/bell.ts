@@ -47,3 +47,19 @@ export function bell(times = 2) {
   }
   try { navigator.vibrate?.([300, 120, 300]); } catch {}
 }
+
+/** "Tic" corto para la cuenta regresiva de los últimos segundos. El último (1) suena más agudo. */
+export function tick(last = false) {
+  const c = getCtx();
+  if (c) {
+    try {
+      const o = c.createOscillator(); const g = c.createGain();
+      o.type = 'square'; o.frequency.value = last ? 1320 : 880;
+      g.gain.setValueAtTime(0.0001, c.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.25, c.currentTime + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, c.currentTime + 0.15);
+      o.connect(g).connect(c.destination); o.start(c.currentTime); o.stop(c.currentTime + 0.17);
+    } catch {}
+  }
+  try { navigator.vibrate?.(60); } catch {}
+}

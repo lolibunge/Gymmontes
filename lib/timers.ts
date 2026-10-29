@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Cronómetros que siguen corriendo aunque cambies de pantalla:
@@ -92,3 +92,25 @@ export function useTimers(ms = 250) {
 }
 
 export const mmss = (s: number) => { const t = Math.max(0, Math.ceil(s)); return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`; };
+
+/** Últimos segundos de una cuenta regresiva: números en rojo y un tic por segundo. */
+export const ENDING_S = 5;
+export const ENDING_RED = '#ff453a';
+export const isEnding = (left: number | null | undefined) => left != null && left > 0 && Math.ceil(left) <= ENDING_S;
+
+/**
+ * Suena un tic en cada uno de los últimos 5 segundos (5, 4, 3, 2, 1).
+ * `key` identifica la cuenta (si cambia, vuelve a sonar). Solo con la app en pantalla.
+ */
+export function useEndingTicks(left: number | null | undefined, running: boolean, key: string | number) {
+  const last = useRef<{ key: string | number; s: number } | null>(null);
+  useEffect(() => {
+    if (!running || left == null || left <= 0) return;
+    const s = Math.ceil(left);
+    if (s > ENDING_S) return;
+    if (last.current && last.current.key === key && last.current.s === s) return;
+    last.current = { key, s };
+    const pip = (document as any).pictureInPictureElement;
+    if (document.visibilityState === 'visible' || pip) import('./bell').then((b) => b.tick(s === 1));
+  });
+}

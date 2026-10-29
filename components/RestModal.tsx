@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { adjustRest, mmss, type RestTimer } from '@/lib/timers';
+import { adjustRest, ENDING_RED, isEnding, mmss, type RestTimer } from '@/lib/timers';
 import { notifState } from '@/lib/bgnotify';
 import { openTimerPip, PipIcon } from './TimerDock';
 import { Close } from './Icons';
@@ -34,8 +34,8 @@ export default function RestModal({ rest, now, pipOk, onClose, onSkip, onAsk }: 
         </header>
 
         <section aria-live="polite" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 14 }}>
-          <span role="timer" className="rest-big">{mmss(left)}</span>
-          <div className="ring" aria-hidden="true"><span style={{ width: `${pct * 100}%` }} /></div>
+          <span role="timer" className="rest-big" style={{ color: isEnding(left) ? ENDING_RED : undefined, transition: 'color .2s' }}>{mmss(left)}</span>
+          <div className="ring" aria-hidden="true"><span style={{ width: `${pct * 100}%`, background: isEnding(left) ? ENDING_RED : undefined }} /></div>
           <span style={{ fontSize: 15, color: '#bdbdbd' }}>{rest.label}</span>
           {rest.next && (
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, paddingTop: 12, borderTop: '1px solid #2a2a2a' }}>

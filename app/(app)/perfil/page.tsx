@@ -6,10 +6,11 @@ import { Chevron } from '@/components/Icons';
 import { declarePayment, setTheme } from './actions';
 import { today } from '@/lib/dates';
 import { logout } from '@/app/login/actions';
+import { betaOn } from '@/lib/notes';
 
 export default async function Perfil() {
   const user = await requireUser();
-  const [cuota, st] = await Promise.all([membership(user.id), stats(user.id)]);
+  const [cuota, st, beta] = await Promise.all([membership(user.id), stats(user.id), betaOn()]);
   const c = cuota && {
     'al día': { cls: 'bg-cuerda', label: 'Cuota · al día', lab: 'var(--campana)', ink: 'var(--campana)', num: 'var(--guante)', bar: 'var(--guante)' },
     'por vencer': { cls: 'bg-venda', label: 'Cuota · por vencer', lab: 'var(--violeta-texto)', ink: 'var(--guante)', num: 'var(--guante)', bar: 'var(--violeta)' },
@@ -19,6 +20,17 @@ export default async function Perfil() {
 
   return (
     <main className="page tight">
+      {beta && (
+        <section className="card bg-venda" style={{ gap: 8 }}>
+          <span className="row" style={{ alignItems: 'center' }}>
+            <span className="label brand">🧪 Versión de prueba</span>
+            <span className="badge" style={{ background: 'var(--violeta)', color: 'var(--on-violeta)' }}>BETA</span>
+          </span>
+          <span className="caption" style={{ color: 'var(--guante)' }}>Estamos probando la app con los socios este mes. Puede que algo falle o cambie de un día para el otro. Si ves un error, algo que no se entiende o se te ocurre una mejora, contanos: nos ayuda un montón.</span>
+          <Link href="/perfil/notas" className="btn btn-primary" style={{ minHeight: 44, fontSize: 14 }}>Dejar una nota <span aria-hidden="true">→</span></Link>
+        </section>
+      )}
+
       <header style={{ display: 'flex', alignItems: 'center', gap: 16, paddingTop: 8 }}>
         <span aria-hidden="true" style={{ width: 64, height: 64, borderRadius: 999, background: 'var(--guante)', color: 'var(--lona)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 28 }}>
           {user.name.slice(0, 1).toUpperCase()}
@@ -91,7 +103,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
-      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.6 beta · Desarrollado por Loli Bunge</p>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.7 beta · Desarrollado por Loli Bunge</p>
     </main>
   );
 }

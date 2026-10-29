@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { q } from '@/lib/db';
-import { markNote } from '@/lib/notes';
+import { betaOn, markNote, setBeta } from '@/lib/notes';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +19,19 @@ export default async function NotasAdmin({ searchParams }: { searchParams: { f?:
   return (
     <main style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
       <h1 className="title">Notas de prueba</h1>
+      {await (async () => {
+        const on = await betaOn();
+        return (
+          <form action={setBeta} className="card bg-cuerda" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span className="strong">Cartel "Versión de prueba"</span>
+              <span className="caption muted">{on ? 'Los socios lo ven en su Perfil.' : 'Apagado: los socios no lo ven.'}</span>
+            </span>
+            <input type="hidden" name="on" value={on ? 'no' : 'si'} />
+            <button className="chip" style={{ whiteSpace: 'nowrap' }}>{on ? 'Apagar' : 'Prender'}</button>
+          </form>
+        );
+      })()}
       <p className="caption muted">Lo que los socios anotan mientras prueban la app: errores, dudas e ideas. Marcalas como vistas o resueltas.</p>
       <div role="group" aria-label="Filtro" style={{ display: 'flex', gap: 8 }}>
         <Link href="/admin/notas" className="chip" aria-pressed={f === 'abiertas'} style={{ display: 'flex', alignItems: 'center' }}>Abiertas</Link>

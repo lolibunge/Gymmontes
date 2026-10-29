@@ -2,7 +2,8 @@
 import { revalidatePath } from 'next/cache';
 import { requireUser } from '@/lib/auth';
 import { requireOwner } from '@/lib/admin';
-import { q } from '@/lib/db';
+import { one, q } from '@/lib/db';
+import { redirect } from 'next/navigation';
 
 /** Nota de prueba (feedback) del socio. Devuelve ok para que la hoja se cierre sin navegar. */
 export async function saveNote(form: FormData): Promise<{ ok: boolean; error?: string }> {
@@ -24,4 +25,18 @@ export async function markNote(form: FormData) {
   await q('update notes set status = $1 where id = $2', [status, id]);
   revalidatePath('/admin/notas');
   revalidatePath('/admin');
+}
+
+/** ¿Se muestra el cartel de "versión de prueba"? Prendido salvo que la dueña lo apague. */
+export async function betaOn(): Promise<boolean> {
+  const r = await one<{ value: string | null }>(`select value from gym_settings where key = 'beta_banner'`);
+  return r?.value !== 'no';
+}
+
+export async function setBeta(form: FormData) {
+  await requireOwner();
+  const on = form.get('on') === 'si';
+  await q(`insert into gym_settings (key, value) values ('beta_banner', $1) on conflict (key) do update set value = excluded.value`, [on ? 'si' : 'no']);
+  revalidatePath('/', 'layout');
+  redirect('/admin/notas');
 }

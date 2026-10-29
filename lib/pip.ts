@@ -4,7 +4,12 @@
  * (WhatsApp, Spotify…). Dibuja el tiempo en un canvas y lo muestra como un video en PiP.
  * Funciona en Chrome de Android y en Safari; donde no se puede, el botón no aparece.
  */
-type Frame = { title: string; big: string; sub: string };
+type Frame = { title: string; big: string; sub: string; red?: boolean };
+
+const AUTO = 'gm-pip-auto';
+/** Si la socia ya usó la ventanita, se abre sola en cada descanso (se puede apagar en la sesión). */
+export function pipAuto() { try { return localStorage.getItem(AUTO) === '1'; } catch { return false; } }
+export function setPipAuto(on: boolean) { try { localStorage.setItem(AUTO, on ? '1' : '0'); } catch {} }
 
 let canvas: HTMLCanvasElement | null = null;
 let video: HTMLVideoElement | null = null;
@@ -25,7 +30,7 @@ function draw() {
   c.fillStyle = '#0e0e0e'; c.fillRect(0, 0, canvas.width, canvas.height);
   if (!f) { c.fillStyle = '#a3a3a3'; c.font = '600 28px system-ui, sans-serif'; c.fillText('GYM MONTES', 24, 100); return; }
   c.fillStyle = '#d69ae8'; c.font = '700 26px system-ui, sans-serif'; c.fillText(f.title.toUpperCase().slice(0, 22), 24, 44);
-  c.fillStyle = '#f5f5f5'; c.font = '900 92px system-ui, sans-serif'; c.fillText(f.big, 24, 138);
+  c.fillStyle = f.red ? '#ff453a' : '#f5f5f5'; c.font = '900 92px system-ui, sans-serif'; c.fillText(f.big, 24, 138);
   c.fillStyle = '#a3a3a3'; c.font = '500 24px system-ui, sans-serif'; c.fillText(f.sub.slice(0, 30), 24, 172);
 }
 

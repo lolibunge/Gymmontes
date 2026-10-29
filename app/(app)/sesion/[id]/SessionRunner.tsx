@@ -6,10 +6,10 @@ import { Back, Check, Chevron, Music } from '@/components/Icons';
 import { discardSession, fillPlanned, finishSession } from '../actions';
 import { corta } from '@/lib/dates';
 import { clearDraft, flush, onPending, pendingCount, push, readDraft, writeDraft, type Draft } from '@/lib/outbox';
-import { adjustRest, mmss, setRestPref, startRest, stopRest, useTimers } from '@/lib/timers';
+import { adjustRest, ENDING_RED, isEnding, mmss, setRestPref, startRest, stopRest, useEndingTicks, useTimers } from '@/lib/timers';
 import { useWakeLock } from '@/lib/wakelock';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
-import { pipSupported } from '@/lib/pip';
+import { closePip, pipAuto, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
 import NoteSheet from '@/components/NoteSheet';
 import RestModal from '@/components/RestModal';
 import WarmPanel from './WarmPanel';
@@ -113,6 +113,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       const nextItem = items[i + 1];
       const nextRow = cur.rows.findIndex((r, j) => j !== rowIdx && !r.done);
       const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
+      // Ventanita flotante en cada descanso (si la usó alguna vez), para verlo desde cualquier app
+      if (pipAuto() && pipSupported() && !pipOpen()) openTimerPip().catch(() => {});
       if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
       else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
       // Última serie del último ejercicio: directo al enfriamiento (si hay)
@@ -130,6 +132,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       return;
     }
     stopRest();
+    closePip();
     clearDraft(sessionId);
     const fd = new FormData();
     fd.set('id', String(sessionId));
@@ -220,7 +223,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
           <span role="button" tabIndex={0} onClick={() => setRestOpen(true)} aria-label="Ver el descanso en pantalla completa" style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: '1 1 100%', cursor: 'pointer' }}>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO · TOCÁ PARA AGRANDAR</span>
-            <span className="rest-time">{mmss((rest.endsAt - now) / 1000)}</span>
+            <span className="rest-time" style={isEnding((rest.endsAt - now) / 1000) ? { color: ENDING_RED } : undefined}>{mmss((rest.endsAt - now) / 1000)}</span>
             <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
           </span>
           <button type="button" onClick={() => adjustRest(-15)} aria-label="15 segundos menos">−15</button>
@@ -288,7 +291,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
               }} />
             </>
           )}
-          {!past && <RestSetting value={restPref} />}
+          {!past && <RestSetting value={restPref} pipOk={pipOk} />}
         </section>
       ) : (
         <section className="card bg-cuerda" style={{ gap: 12 }}>
@@ -347,8 +350,11 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
 const REST_OPTIONS = [60, 90, 120, 150, 180];
 
 /** "Descanso entre series": 1:30 por defecto, se puede cambiar y queda guardado en el teléfono. */
-function RestSetting({ value }: { value: number }) {
+function RestSetting({ value, pipOk }: { value: number; pipOk: boolean }) {
+  const [auto, setAuto] = useState(false);
+  useEffect(() => setAuto(pipAuto()), []);
   return (
+    <>
     <div className="row" style={{ paddingTop: 14, flexWrap: 'wrap' }}>
       <span className="caption muted">Descanso entre series</span>
       <span role="group" aria-label="Descanso entre series" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -361,6 +367,14 @@ function RestSetting({ value }: { value: number }) {
         <button type="button" className="chip" style={{ minHeight: 36, padding: '0 12px' }} onClick={() => setRestPref(Math.min(600, value + 15))} aria-label="15 segundos más">+</button>
       </span>
     </div>
+    {pipOk && (
+      <label style={{ display: 'flex', alignItems: 'center', gap: 10, paddingTop: 10, fontSize: 14 }}>
+        <input type="checkbox" checked={auto} onChange={(e) => { setAuto(e.target.checked); setPipAuto(e.target.checked); if (!e.target.checked) closePip(); }}
+          style={{ width: 20, height: 20, accentColor: 'var(--violeta)' }} />
+        <span>Ventanita flotante en cada descanso <span className="caption muted" style={{ display: 'block' }}>Se ve arriba de cualquier app, como el timer de la bici.</span></span>
+      </label>
+    )}
+    </>
   );
 }
 
@@ -387,6 +401,7 @@ function TimedSets({ rows, activeRow, update }: { rows: Row[]; activeRow: number
   }, [run]);
 
   const left = run ? Math.max(0, Math.ceil((run.end - now) / 1000)) : 0;
+  useEndingTicks(run ? (run.end - now) / 1000 : null, !!run, run ? `t${run.row}-${run.end}` : '-');
   useEffect(() => {
     if (run && left === 0 && !done.current) {
       done.current = true;
@@ -427,7 +442,7 @@ function TimedSets({ rows, activeRow, update }: { rows: Row[]; activeRow: number
                 onChange={(e) => update(j, { reps: e.target.value.replace(/\D/g, '') })} onBlur={() => r.done && update(j, {}, true)}
                 style={{ flex: 1, height: 48, padding: '0 14px', border: 0, borderRadius: 4, width: '100%', fontFamily: 'var(--font-archivo)', fontWeight: 700, fontSize: 20,
                   background: running ? 'var(--venda)' : r.done ? 'var(--cuerda)' : 'var(--lona)', boxShadow: r.done || running ? 'none' : 'inset 0 0 0 1.5px var(--linea)',
-                  color: running ? 'var(--violeta-texto)' : pending ? 'var(--campana)' : 'var(--guante)' }} />
+                  color: running ? (isEnding(left) ? 'var(--alerta)' : 'var(--violeta-texto)') : pending ? 'var(--campana)' : 'var(--guante)' }} />
             </label>
             <button type="button" onClick={() => toggle(j)} disabled={!!run && !running}
               aria-label={running ? `Parar, aguanté ${run!.total - left} segundos` : `Empezar ${r.reps || 30} segundos`}

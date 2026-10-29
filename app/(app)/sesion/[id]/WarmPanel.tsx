@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bell } from '@/lib/bell';
 import { Check } from '@/components/Icons';
-import { mmss } from '@/lib/timers';
+import { ENDING_RED, isEnding, mmss, useEndingTicks } from '@/lib/timers';
 import type { WarmStep } from '@/lib/warmup';
 
 /**
@@ -36,6 +36,7 @@ export default function WarmPanel({ kind, steps, status, onDone }: {
   }
 
   const left = endsAt != null ? Math.max(0, (endsAt - now) / 1000) : paused;
+  useEndingTicks(left, endsAt != null, `w${k}-${endsAt}`);
   useEffect(() => {
     if (endsAt != null && left === 0 && fired.current !== k) {
       fired.current = k;
@@ -60,7 +61,7 @@ export default function WarmPanel({ kind, steps, status, onDone }: {
         <div className="card bg-esquina" style={{ gap: 8, padding: 18 }}>
           <span className="label" style={{ color: '#d69ae8' }}>Paso {k + 1} de {steps.length}</span>
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{cur.name}</span>
-          {left != null && <span role="timer" style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 56, lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>{mmss(left)}</span>}
+          {left != null && <span role="timer" style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 56, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: endsAt != null && isEnding(left) ? ENDING_RED : undefined }}>{mmss(left)}</span>}
           <div style={{ display: 'flex', gap: 8 }}>
             {cur.s != null && (
               <button type="button" className="btn btn-outline" style={{ flex: 1, color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', minHeight: 48, fontSize: 14 }}

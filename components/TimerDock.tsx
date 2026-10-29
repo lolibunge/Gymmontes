@@ -4,8 +4,8 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { bell, unlockAudio } from '@/lib/bell';
 import { push, startOutbox } from '@/lib/outbox';
-import { openPip, pipSupported } from '@/lib/pip';
-import { cardioElapsed, cardioEnds, cardioIdx, mmss, patchTimers, readTimers, stopRest, useTimers, type Timers } from '@/lib/timers';
+import { closePip, openPip, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
+import { cardioElapsed, cardioEnds, cardioIdx, isEnding, mmss, patchTimers, readTimers, stopRest, useEndingTicks, useTimers, type Timers } from '@/lib/timers';
 import { useWakeLock } from '@/lib/wakelock';
 import { cancelPlan, sendPlan, type BgPlan } from '@/lib/bgnotify';
 
@@ -40,19 +40,28 @@ export function planFor(t: Timers, now = Date.now()): BgPlan | null {
 
 /** Lo que muestra la ventanita (PiP): el cronómetro que esté andando. */
 export function frameFor(t: Timers, now = Date.now()) {
-  if (t.rest) return { title: 'Descanso', big: mmss((t.rest.endsAt - now) / 1000), sub: t.rest.label };
+  if (t.rest) { const l = (t.rest.endsAt - now) / 1000; return { title: 'Descanso', big: mmss(l), sub: t.rest.next ? `Sigue: ${t.rest.next}` : t.rest.label, red: isEnding(l) }; }
   if (t.cardio && !t.cardio.done) {
     const c = t.cardio; const el = cardioElapsed(c, now); const k = cardioIdx(c, el);
     const left = cardioEnds(c.segments)[k] - el;
     const next = c.segments[k + 1];
-    return { title: `${c.segments[k].label} · tramo ${k + 1}/${c.segments.length}`, big: mmss(left), sub: c.since == null ? 'En pausa' : next ? `Después: ${next.label}` : 'Último tramo' };
+    return { title: `${c.segments[k].label} · tramo ${k + 1}/${c.segments.length}`, big: mmss(left), sub: c.since == null ? 'En pausa' : next ? `Después: ${next.label}` : 'Último tramo', red: c.since != null && isEnding(left) };
   }
   return null;
 }
 
+/**
+ * Abre la ventanita flotante. Queda abierta toda la sesión: entre descansos muestra "A entrenar"
+ * y en cuanto marcás la próxima serie vuelve a mostrar la cuenta regresiva.
+ */
 export function openTimerPip() {
-  return openPip(() => frameFor(readTimers()));
+  setPipAuto(true);
+  return openPip(() => frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '▶ ¡Dale!', sub: 'Marcá la serie: arranca el descanso' });
 }
+export { closePip };
+
+/** Se puede sonar si la app está en pantalla o si la ventanita flotante está abierta. */
+const audible = () => document.visibilityState === 'visible' || pipOpen();
 
 /**
  * Motor de los cronómetros (montado en toda la app):
@@ -85,10 +94,18 @@ export default function TimerDock() {
   const cardioRunning = !!cardio && cardio.since != null && !cardio.done;
   useWakeLock(!!rest || cardioRunning);
 
+  // Últimos 5 segundos: un tic por segundo (descanso y cada tramo de la bici)
+  const restLeft = rest ? (rest.endsAt - now) / 1000 : null;
+  useEndingTicks(restLeft, !!rest, rest ? `r${rest.startedAt}` : '-');
+  const cEl = cardio ? cardioElapsed(cardio, now) : 0;
+  const cIdx = cardio ? cardioIdx(cardio, cEl) : 0;
+  const cardioLeft = cardio && cardioRunning ? cardioEnds(cardio.segments)[cIdx] - cEl : null;
+  useEndingTicks(cardioLeft, cardioRunning, `c${cardio?.itemId}-${cIdx}`);
+
   // Fin del descanso
   useEffect(() => {
     if (rest && now >= rest.endsAt) {
-      if (document.visibilityState === 'visible') bell();
+      if (audible()) bell();
       stopRest();
       setToast('¡Terminó el descanso! A la próxima serie.');
     }
@@ -100,7 +117,7 @@ export default function TimerDock() {
     const el = cardioElapsed(cardio, now);
     const total = cardioEnds(cardio.segments).slice(-1)[0] ?? 0;
     if (el >= total && total > 0) {
-      if (document.visibilityState === 'visible') bell(3);
+      if (audible()) bell(3);
       push({ t: 'cardio', s: cardio.sessionId, i: cardio.itemId, minutes: Math.round(total / 60) });
       patchTimers((t) => (t.cardio ? { ...t, cardio: { ...t.cardio, base: total, since: null, done: true, lastIdx: t.cardio.segments.length - 1 } } : t));
       setToast('¡Cardio terminado! Quedó registrado.');
@@ -108,7 +125,7 @@ export default function TimerDock() {
     }
     const k = cardioIdx(cardio, el);
     if (k !== cardio.lastIdx) {
-      if (document.visibilityState === 'visible') bell();
+      if (audible()) bell();
       patchTimers((t) => (t.cardio ? { ...t, cardio: { ...t.cardio, lastIdx: k } } : t));
       setToast(`Cambio de tramo: ${cardio.segments[k].label}`);
     }
@@ -142,7 +159,7 @@ export default function TimerDock() {
               <span className="dock-title">{f.title}</span>
               <span className="dock-sub">{f.sub}</span>
             </span>
-            <span className="dock-time">{f.big}</span>
+            <span className="dock-time" style={f.red ? { color: '#ff453a' } : undefined}>{f.big}</span>
           </Link>
           {pipOk && (
             <button type="button" className="dock-pip" onClick={() => openTimerPip()} aria-label="Abrir el cronómetro en una ventanita flotante">

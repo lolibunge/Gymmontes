@@ -4,7 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Close } from '@/components/Icons';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { pipSupported } from '@/lib/pip';
-import { cardioElapsed, cardioEnds, cardioIdx, patchTimers, useTimers, type CardioTimer } from '@/lib/timers';
+import { cardioElapsed, cardioEnds, cardioIdx, ENDING_RED, isEnding, patchTimers, useTimers, type CardioTimer } from '@/lib/timers';
+import { pipAuto, pipOpen } from '@/lib/pip';
 import { useWakeLock } from '@/lib/wakelock';
 import { askNotifications, notifState } from '@/lib/bgnotify';
 
@@ -42,7 +43,11 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
       return { ...t, cardio: { ...cur, title, segments, ...next } };
     });
   }
-  const toggle = () => (running ? set({ base: elapsed, since: null }) : set({ since: Date.now(), base: elapsed, lastIdx: idx }));
+  const toggle = () => {
+    if (running) return set({ base: elapsed, since: null });
+    if (pipOk && pipAuto() && !pipOpen()) openTimerPip().catch(() => {});
+    set({ since: Date.now(), base: elapsed, lastIdx: idx });
+  };
   const jump = (k: number) => {
     const kk = Math.max(0, Math.min(segments.length - 1, k));
     const t = kk <= 0 ? 0 : ends[kk - 1];
@@ -73,7 +78,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: '#d69ae8' }}>{finished ? '¡Listo!' : segments[idx].label}</span>
           {(() => {
             const t = Math.ceil(left);
-            const big: React.CSSProperties = { fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums' };
+            const big: React.CSSProperties = { fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums', color: running && isEnding(left) ? ENDING_RED : undefined, transition: 'color .2s' };
             const unit: React.CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#a3a3a3', paddingLeft: 4 };
             return (
               <span role="timer" aria-label={`${Math.floor(t / 60)} minutos ${t % 60} segundos`} style={{ display: 'flex', alignItems: 'flex-start' }}>

@@ -20,6 +20,7 @@ export default async function Inicio() {
   const series = ejercicios.reduce((a, i) => a + (i.sets ?? 0), 0);
   const cardio = plan?.items.find((i) => i.kind === 'cardio');
   const yaHoy = hoy ? done.has(wd) : false;
+  const esMiCumple = novedades.some((n) => n.birthday && n.id === -user.id);
 
   return (
     <main className="page">
@@ -53,6 +54,14 @@ export default async function Inicio() {
           </span>
           <span className="link">Pagar</span>
         </Link>
+      )}
+
+      {esMiCumple && (
+        <section className="card bg-violeta" style={{ gap: 4, padding: '16px 18px' }}>
+          <span style={{ fontSize: 28, lineHeight: 1 }} aria-hidden="true">🎂🎉</span>
+          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>¡Feliz cumpleaños, {user.name.split(' ')[0]}!</span>
+          <span className="caption">Todo GYM MONTES te desea un gran día. Que este año venga con muchos PR 💪</span>
+        </section>
       )}
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -150,7 +159,7 @@ export default async function Inicio() {
                 <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.06em' }} className="muted">{mesCorto(n.date)}</span>
               </span>
               <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <span className="strong">{n.title}</span>
+                <span className="strong" style={n.birthday ? { color: 'var(--violeta-texto)' } : undefined}>{n.title}</span>
                 {n.body && <span className="caption muted">{n.body}</span>}
               </span>
             </div>

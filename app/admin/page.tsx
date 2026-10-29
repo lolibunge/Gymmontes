@@ -1,5 +1,6 @@
 import { METHOD_LABEL, pendingPayments } from '@/lib/payments';
 import Link from 'next/link';
+import { birthdaysToday } from '@/lib/birthdays';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
 import { addDays, corta, DIAS, mesLargo, today, weekdayOf } from '@/lib/dates';
@@ -37,6 +38,7 @@ export default async function Resumen() {
     one<{ n: number }>(`select count(*)::int as n from users where role = 'socio' and created_at >= $1::date`, [monday]),
   ]);
   const pagos = await pendingPayments();
+  const cumples = await birthdaysToday({ includeHidden: true });
   const notas = await one<{ n: number; total: number }>(`select count(*) filter (where status = 'nueva')::int as n, count(*)::int as total from notes`);
   const porVencer = cuotas.filter((c) => c.left >= 0 && c.left <= 7);
   const vencidas = cuotas.filter((c) => c.left < 0);
@@ -58,6 +60,18 @@ export default async function Resumen() {
         <Kpi n={porVencer.length} label="cuotas vencen en 7 días" href="/admin/socios?f=vencer" tone="venda" />
         <Kpi n={vencidas.length} label="cuotas vencidas" href="/admin/socios?f=vencidas" tone="alerta" />
       </div>
+
+      {cumples.length > 0 && (
+        <section className="card bg-venda" style={{ gap: 6 }}>
+          <span className="label brand">🎂 Cumpleaños de hoy</span>
+          {cumples.map((c) => (
+            <Link key={c.id} href={`/admin/socios/${c.id}`} className="row" style={{ color: 'var(--guante)' }}>
+              <span className="strong">{c.name}</span>
+              <span className="caption muted">{c.hidden ? 'no se muestra en Novedades' : 'saludado en Novedades'}</span>
+            </Link>
+          ))}
+        </section>
+      )}
 
       <Link href="/admin/notas" className={`card ${notas?.n ? 'bg-venda' : 'bg-cuerda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', color: 'var(--guante)' }}>
         <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>

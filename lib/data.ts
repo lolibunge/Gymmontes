@@ -1,3 +1,4 @@
+import { birthdaysToday } from './birthdays';
 import { q, one } from './db';
 import { addDays, daysBetween, today, weekdayOf } from './dates';
 
@@ -124,11 +125,18 @@ export async function raffle(userId: number) {
   );
 }
 
+/** Novedades del gym. Arriba de todo, los cumpleaños de hoy (se arman solos con la fecha de nacimiento). */
 export async function news(limit = 5) {
-  return q<{ id: number; date: string; title: string; body: string | null }>(
-    `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news order by date desc limit $1`,
-    [limit]
-  );
+  const [rows, cumple] = await Promise.all([
+    q<{ id: number; date: string; title: string; body: string | null }>(
+      `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news order by date desc limit $1`,
+      [limit]
+    ),
+    birthdaysToday(),
+  ]);
+  const t = today();
+  const bdays = cumple.map((c) => ({ id: -c.id, date: t, title: `🎂 ¡Feliz cumpleaños, ${c.name}!`, body: 'Hoy es su cumple. ¡Dale un saludo en el gym!' as string | null, birthday: true }));
+  return [...bdays, ...rows.map((r) => ({ ...r, birthday: false }))];
 }
 
 export async function stats(userId: number) {

@@ -23,15 +23,26 @@ export function pipSupported() {
   return canStream && (!!(document as any).pictureInPictureEnabled || typeof v.webkitSetPresentationMode === 'function');
 }
 
+/** Escribe el texto achicando la letra (y si igual no entra, cortando con "…") para que nunca se salga del cuadro. */
+function fit(c: CanvasRenderingContext2D, text: string, x: number, y: number, maxW: number, weight: number, size: number, min: number) {
+  let px = size;
+  c.font = `${weight} ${px}px system-ui, sans-serif`;
+  while (px > min && c.measureText(text).width > maxW) { px -= 2; c.font = `${weight} ${px}px system-ui, sans-serif`; }
+  let t = text;
+  while (t.length > 1 && c.measureText(t).width > maxW) t = t.slice(0, -2) + '…';
+  c.fillText(t, x, y);
+}
+
 function draw() {
   if (!canvas || !getFrame) return;
   const f = getFrame();
   const c = canvas.getContext('2d')!;
+  const W = canvas.width - 48;
   c.fillStyle = '#0e0e0e'; c.fillRect(0, 0, canvas.width, canvas.height);
-  if (!f) { c.fillStyle = '#a3a3a3'; c.font = '600 28px system-ui, sans-serif'; c.fillText('GYM MONTES', 24, 100); return; }
-  c.fillStyle = '#d69ae8'; c.font = '700 26px system-ui, sans-serif'; c.fillText(f.title.toUpperCase().slice(0, 22), 24, 44);
-  c.fillStyle = f.red ? '#ff453a' : '#f5f5f5'; c.font = '900 92px system-ui, sans-serif'; c.fillText(f.big, 24, 138);
-  c.fillStyle = '#a3a3a3'; c.font = '500 24px system-ui, sans-serif'; c.fillText(f.sub.slice(0, 30), 24, 172);
+  if (!f) { c.fillStyle = '#a3a3a3'; fit(c, 'GYM MONTES', 24, 100, W, 600, 28, 16); return; }
+  c.fillStyle = '#d69ae8'; fit(c, f.title.toUpperCase(), 24, 44, W, 700, 26, 16);
+  c.fillStyle = f.red ? '#ff453a' : '#f5f5f5'; fit(c, f.big, 24, 138, W, 900, 92, 40);
+  c.fillStyle = '#a3a3a3'; fit(c, f.sub, 24, 172, W, 500, 24, 16);
 }
 
 export function pipOpen() {

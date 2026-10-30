@@ -15,7 +15,12 @@ export type CardioTimer = {
   sessionId: number; itemId: number; title: string; segments: Seg[];
   base: number; since: number | null; lastIdx: number; done: boolean;
 };
-export type Timers = { rest: RestTimer | null; cardio: CardioTimer | null };
+/** Calentamiento / enfriamiento guiado. k = paso actual (k = steps.length: terminado). */
+export type WarmTimer = {
+  sessionId: number; kind: 'calentamiento' | 'enfriamiento'; steps: { name: string; s: number | null }[];
+  k: number; endsAt: number | null; paused: number | null;
+};
+export type Timers = { rest: RestTimer | null; cardio: CardioTimer | null; warm: WarmTimer | null };
 
 const KEY = 'gm-timers';
 const EVT = 'gm-timers';
@@ -23,7 +28,7 @@ const REST_KEY = 'gm-rest-s';
 export const DEFAULT_REST = 90;
 
 export function readTimers(): Timers {
-  try { return { rest: null, cardio: null, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { rest: null, cardio: null }; }
+  try { return { rest: null, cardio: null, warm: null, ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { return { rest: null, cardio: null, warm: null }; }
 }
 export function writeTimers(t: Timers) {
   try { localStorage.setItem(KEY, JSON.stringify(t)); } catch {}
@@ -70,7 +75,7 @@ export function cardioIdx(c: CardioTimer, elapsed: number) {
 
 /** Re-render cada `ms` mientras haya algún cronómetro andando, y cada vez que cambian. */
 export function useTimers(ms = 250) {
-  const [t, setT] = useState<Timers>({ rest: null, cardio: null });
+  const [t, setT] = useState<Timers>({ rest: null, cardio: null, warm: null });
   const [now, setNow] = useState(0);
   const [pref, setPref] = useState(DEFAULT_REST);
   useEffect(() => {
@@ -82,7 +87,7 @@ export function useTimers(ms = 250) {
     document.addEventListener('visibilitychange', sync);
     return () => { window.removeEventListener(EVT, sync); window.removeEventListener('storage', onStorage); document.removeEventListener('visibilitychange', sync); };
   }, []);
-  const active = !!t.rest || !!(t.cardio && t.cardio.since != null);
+  const active = !!t.rest || !!(t.cardio && t.cardio.since != null) || !!t.warm?.endsAt;
   useEffect(() => {
     if (!active) return;
     const id = setInterval(() => setNow(Date.now()), ms);
@@ -114,3 +119,20 @@ export function useEndingTicks(left: number | null | undefined, running: boolean
     if (document.visibilityState === 'visible' || pip) import('./bell').then((b) => b.tick(s === 1));
   });
 }
+
+/* ---------- calentamiento / enfriamiento ---------- */
+/** Arranca (o salta a) el paso n. Si el paso no tiene tiempo, queda esperando que toques "Listo". */
+export function warmGo(base: Omit<WarmTimer, 'k' | 'endsAt' | 'paused'>, n: number) {
+  const s = base.steps[n]?.s ?? null;
+  patchTimers((t) => ({ ...t, warm: { ...base, k: n, endsAt: n < base.steps.length && s ? Date.now() + s * 1000 : null, paused: null } }));
+}
+export function warmPause() {
+  patchTimers((t) => {
+    const w = t.warm; if (!w) return t;
+    if (w.endsAt != null) return { ...t, warm: { ...w, paused: Math.max(0, (w.endsAt - Date.now()) / 1000), endsAt: null } };
+    if (w.paused != null) return { ...t, warm: { ...w, endsAt: Date.now() + w.paused * 1000, paused: null } };
+    return t;
+  });
+}
+export function warmStop() { patchTimers((t) => ({ ...t, warm: null })); }
+export const warmLeft = (w: WarmTimer, now = Date.now()) => (w.endsAt != null ? Math.max(0, (w.endsAt - now) / 1000) : w.paused);

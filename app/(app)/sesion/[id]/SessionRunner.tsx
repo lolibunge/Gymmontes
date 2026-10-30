@@ -6,7 +6,7 @@ import { Back, Check, Chevron, Music } from '@/components/Icons';
 import { discardSession, fillPlanned, finishSession } from '../actions';
 import { corta } from '@/lib/dates';
 import { clearDraft, flush, onPending, pendingCount, push, readDraft, writeDraft, type Draft } from '@/lib/outbox';
-import { adjustRest, ENDING_RED, isEnding, mmss, setRestPref, startRest, stopRest, useEndingTicks, useTimers } from '@/lib/timers';
+import { readTimers, adjustRest, ENDING_RED, isEnding, mmss, setRestPref, startRest, stopRest, useEndingTicks, useTimers } from '@/lib/timers';
 import { useWakeLock } from '@/lib/wakelock';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { closePip, pipAuto, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
@@ -82,6 +82,9 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         if (d.phase.warm) setI((k) => (k === -1 ? 0 : k));
       }
     }
+    // Calentamiento o enfriamiento en curso (por ejemplo, volviste para atrás sin querer): seguir ahí
+    const w = readTimers().warm;
+    if (w && w.sessionId === sessionId) setI(clamp(w.kind === 'calentamiento' ? -1 : initial.length));
     setReady(true);
     setPipOk(pipSupported());
     setPending(pendingCount(sessionId));
@@ -196,7 +199,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       </header>
 
       {inWarm || inCool ? (
-        <WarmPanel key={inWarm ? 'warm' : 'cool'} kind={inWarm ? 'calentamiento' : 'enfriamiento'} steps={inWarm ? warm : cool} status={inWarm ? phase.warm : phase.cool}
+        <WarmPanel key={inWarm ? 'warm' : 'cool'} sessionId={sessionId} kind={inWarm ? 'calentamiento' : 'enfriamiento'} steps={inWarm ? warm : cool} status={inWarm ? phase.warm : phase.cool}
           onDone={(st) => {
             setPhase((p) => ({ ...p, [inWarm ? 'warm' : 'cool']: st }));
             if (inWarm) go(0); else if (anyDone || finished) finish();

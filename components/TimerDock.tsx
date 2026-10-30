@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { bell, unlockAudio } from '@/lib/bell';
 import { push, startOutbox } from '@/lib/outbox';
 import { closePip, openPip, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
-import { cardioElapsed, cardioEnds, cardioIdx, isEnding, mmss, patchTimers, readTimers, stopRest, useEndingTicks, useTimers, type Timers } from '@/lib/timers';
+import { cardioElapsed, cardioEnds, cardioIdx, isEnding, mmss, patchTimers, readTimers, stopRest, useEndingTicks, useTimers, warmGo, warmLeft, type Timers } from '@/lib/timers';
 import { useWakeLock } from '@/lib/wakelock';
 import { cancelPlan, sendPlan, type BgPlan } from '@/lib/bgnotify';
 
@@ -19,6 +19,20 @@ export function planFor(t: Timers, now = Date.now()): BgPlan | null {
       ongoing: { title: `Descanso · termina ${hhmm(t.rest.endsAt)}`, body: t.rest.label },
       alerts: [{ at: t.rest.endsAt, title: '¡Terminó el descanso!', body: t.rest.next ? `A la próxima serie: ${t.rest.next}` : 'A la próxima serie' }],
     };
+  }
+  const w = t.warm;
+  if (w && w.endsAt != null && w.endsAt > now) {
+    // Avisos al terminar cada paso con tiempo (se corta en el primero que se marca a mano)
+    const alerts = [];
+    let at = w.endsAt;
+    for (let n = w.k + 1; ; n++) {
+      const st = w.steps[n];
+      alerts.push(st ? { at, title: `${w.kind === 'calentamiento' ? 'Calentamiento' : 'Enfriamiento'}: ${st.name}`, body: st.s ? `Paso ${n + 1} de ${w.steps.length} · ${mmss(st.s)}` : `Paso ${n + 1} de ${w.steps.length} · tocá Listo al terminar` }
+        : { at, title: `¡${w.kind === 'calentamiento' ? 'Calentamiento' : 'Enfriamiento'} terminado!`, body: 'Volvé a la app para seguir.' });
+      if (!st || !st.s) break;
+      at += st.s * 1000;
+    }
+    return { ongoing: { title: `${w.steps[w.k].name} · termina ${hhmm(w.endsAt)}`, body: `${w.kind === 'calentamiento' ? 'Calentamiento' : 'Enfriamiento'} · paso ${w.k + 1} de ${w.steps.length}` }, alerts };
   }
   const c = t.cardio;
   if (c && !c.done && c.since != null) {
@@ -41,6 +55,14 @@ export function planFor(t: Timers, now = Date.now()): BgPlan | null {
 /** Lo que muestra la ventanita (PiP): el cronómetro que esté andando. */
 export function frameFor(t: Timers, now = Date.now()) {
   if (t.rest) { const l = (t.rest.endsAt - now) / 1000; return { title: 'Descanso', big: mmss(l), sub: t.rest.next ? `Sigue: ${t.rest.next}` : t.rest.label, red: isEnding(l) }; }
+  if (t.warm && t.warm.k < t.warm.steps.length && (t.warm.endsAt != null || t.warm.paused != null || t.warm.steps[t.warm.k]?.s == null)) {
+    const w = t.warm; const l = warmLeft(w, now); const st = w.steps[w.k]; const nx = w.steps[w.k + 1];
+    return {
+      title: `${w.kind === 'calentamiento' ? 'Calentamiento' : 'Enfriamiento'} · ${w.k + 1}/${w.steps.length}`,
+      big: l != null ? mmss(l) : '✓ Listo', sub: l == null ? `${st.name}: tocá Listo` : w.endsAt == null ? `En pausa · ${st.name}` : nx ? `${st.name} · después: ${nx.name}` : st.name,
+      red: w.endsAt != null && isEnding(l),
+    };
+  }
   if (t.cardio && !t.cardio.done) {
     const c = t.cardio; const el = cardioElapsed(c, now); const k = cardioIdx(c, el);
     const left = cardioEnds(c.segments)[k] - el;
@@ -56,7 +78,7 @@ export function frameFor(t: Timers, now = Date.now()) {
  */
 export function openTimerPip() {
   setPipAuto(true);
-  return openPip(() => frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '▶ ¡Dale!', sub: 'Marcá la serie: arranca el descanso' });
+  return openPip(() => frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '¡Dale!', sub: 'Marcá la serie y arranca el descanso' });
 }
 export { closePip };
 
@@ -92,7 +114,7 @@ export default function TimerDock() {
 
   const { rest, cardio } = timers;
   const cardioRunning = !!cardio && cardio.since != null && !cardio.done;
-  useWakeLock(!!rest || cardioRunning);
+  useWakeLock(!!rest || cardioRunning || !!timers.warm?.endsAt);
 
   // Últimos 5 segundos: un tic por segundo (descanso y cada tramo de la bici)
   const restLeft = rest ? (rest.endsAt - now) / 1000 : null;
@@ -101,6 +123,19 @@ export default function TimerDock() {
   const cIdx = cardio ? cardioIdx(cardio, cEl) : 0;
   const cardioLeft = cardio && cardioRunning ? cardioEnds(cardio.segments)[cIdx] - cEl : null;
   useEndingTicks(cardioLeft, cardioRunning, `c${cardio?.itemId}-${cIdx}`);
+
+  // Calentamiento / enfriamiento: tic en los últimos 5 s y pasar solo al paso siguiente
+  const warm = timers.warm;
+  const wLeft = warm?.endsAt != null ? (warm.endsAt - now) / 1000 : null;
+  useEndingTicks(wLeft, warm?.endsAt != null, warm ? `w${warm.kind}${warm.k}-${warm.endsAt}` : '-');
+  useEffect(() => {
+    if (!warm || warm.endsAt == null || now < warm.endsAt) return;
+    const next = warm.k + 1;
+    if (audible()) bell(next >= warm.steps.length ? 3 : 2);
+    if (next < warm.steps.length) setToast(`Siguiente: ${warm.steps[next].name}`);
+    else setToast(`¡${warm.kind === 'calentamiento' ? 'Calentamiento' : 'Enfriamiento'} terminado!`);
+    warmGo({ sessionId: warm.sessionId, kind: warm.kind, steps: warm.steps }, next);
+  }, [warm, now]);
 
   // Fin del descanso
   useEffect(() => {
@@ -138,10 +173,12 @@ export default function TimerDock() {
   }, [toast]);
 
   const showRest = !!rest && path !== `/sesion/${rest.sessionId}`;
+  const w2 = timers.warm;
+  const showWarm = !rest && !!w2 && w2.k < w2.steps.length && path !== `/sesion/${w2.sessionId}`;
   const cardioHref = cardio ? `/timer/${cardio.sessionId}/${cardio.itemId}` : '';
   const showCardio = !!cardio && !cardio.done && (cardio.since != null || cardio.base > 0) && path !== cardioHref;
   const f = frameFor(timers, now);
-  const visible = (showRest || showCardio) && !!f;
+  const visible = (showRest || showWarm || showCardio) && !!f;
 
   // Con la pastilla arriba, bajamos el contenido para que no tape los botones del encabezado
   useEffect(() => {
@@ -153,8 +190,8 @@ export default function TimerDock() {
     <>
       {visible && f && (
         <div className="dock" role="status">
-          <Link href={showRest ? `/sesion/${rest!.sessionId}?paso=${rest!.step}` : cardioHref} className="dock-pill">
-            <span className="dock-dot" style={{ background: cardioRunning || rest ? 'var(--violeta)' : 'var(--campana)' }} />
+          <Link href={showRest ? `/sesion/${rest!.sessionId}?paso=${rest!.step}` : showWarm ? `/sesion/${w2!.sessionId}?paso=${w2!.kind === 'calentamiento' ? -1 : 99}` : cardioHref} className="dock-pill">
+            <span className="dock-dot" style={{ background: cardioRunning || rest || w2?.endsAt ? 'var(--violeta)' : 'var(--campana)' }} />
             <span style={{ display: 'flex', flexDirection: 'column', minWidth: 0 }}>
               <span className="dock-title">{f.title}</span>
               <span className="dock-sub">{f.sub}</span>

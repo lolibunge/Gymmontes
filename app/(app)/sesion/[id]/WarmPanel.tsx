@@ -41,7 +41,7 @@ export default function WarmPanel({ sessionId, kind, steps, status, onDone }: {
 
       {w && !finished && cur && (
         <div className="card bg-esquina" style={{ gap: 8, padding: 18 }}>
-          <span className="label" style={{ color: '#d69ae8' }}>Paso {k + 1} de {steps.length}</span>
+          <span className="label" style={{ color: 'var(--acento-claro)' }}>Paso {k + 1} de {steps.length}</span>
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{cur.name}</span>
           {left != null && (
             <span role="timer" style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 56, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: w.endsAt != null && isEnding(left) ? ENDING_RED : undefined }}>{mmss(left)}</span>

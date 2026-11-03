@@ -33,6 +33,7 @@ create table if not exists users (
 );
 alter table users add column if not exists auth_provider text not null default 'password';
 alter table users add column if not exists show_birthday boolean not null default true;
+alter table users add column if not exists accent text not null default 'violeta';
 create table if not exists exercises (
   id serial primary key,
   slug text not null unique,

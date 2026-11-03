@@ -56,7 +56,7 @@ export function checkPin(pin: string, stored: string): boolean {
 }
 
 export type User = {
-  id: number; name: string; email: string; role: string; theme: string;
+  id: number; name: string; email: string; role: string; theme: string; accent: string;
   phone: string | null; birth: string | null; weight_kg: string | null; height_cm: string | null;
   emergency: string | null; goals_text: string | null; goal_tags: string[]; member_since: string;
 };
@@ -65,7 +65,7 @@ export async function currentUser(): Promise<User | null> {
   const id = verify(cookies().get(COOKIE)?.value);
   if (!id) return null;
   return one<User>(
-    `select id, name, email, role, theme, phone, birth, weight_kg, height_cm, emergency, goals_text, goal_tags,
+    `select id, name, email, role, theme, coalesce(accent, 'violeta') as accent, phone, birth, weight_kg, height_cm, emergency, goals_text, goal_tags,
             to_char(member_since,'YYYY-MM-DD') as member_since from users where id = $1`,
     [id]
   );

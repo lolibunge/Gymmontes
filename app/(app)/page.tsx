@@ -1,7 +1,7 @@
 import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
 import { requireUser } from '@/lib/auth';
-import { challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
+import { openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
 import { DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
 import { Arrow, Check, Clock } from '@/components/Icons';
 import { startSession } from './sesion/actions';
@@ -14,6 +14,7 @@ export default async function Inicio() {
     todaysPlan(user.id), weekDone(user.id), membership(user.id), challenge(), monthCount(user.id), news(2),
   ]);
   const plan = hoy ?? proximo;
+  const abierta = await openSessionToday(user.id);
   const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
   const pendientes = user.role === 'duena' ? await pendingCount() : 0;
   const ejercicios = plan?.items.filter((i) => i.kind === 'ejercicio') ?? [];
@@ -37,10 +38,20 @@ export default async function Inicio() {
       {user.role === 'duena' && (
         <Link href="/admin" className="card bg-esquina" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
           <span style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="label" style={{ color: '#d69ae8' }}>Panel de la dueña</span>
+            <span className="label" style={{ color: 'var(--acento-claro)' }}>Panel de la dueña</span>
             <span className="caption" style={{ color: '#bdbdbd' }}>{pendientes ? `${pendientes} ${pendientes === 1 ? 'pedido nuevo' : 'pedidos nuevos'}` : 'Sin pedidos pendientes'}</span>
           </span>
           <Arrow color="#f5f5f5" />
+        </Link>
+      )}
+
+      {abierta && (
+        <Link href={`/sesion/${abierta.id}`} className="card bg-violeta" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="strong">Tenés una sesión sin terminar</span>
+            <span className="caption">{abierta.done ? `${abierta.done} ${abierta.done === 1 ? 'serie hecha' : 'series hechas'} · seguí donde quedaste` : 'Seguí donde quedaste'}</span>
+          </span>
+          <span className="strong" style={{ whiteSpace: 'nowrap' }}>Seguir →</span>
         </Link>
       )}
 
@@ -79,7 +90,9 @@ export default async function Inicio() {
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <Link href="/rutina/plan" className="btn btn-outline" style={{ flex: 1, color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', fontSize: 14 }}>Ver rutina</Link>
-            {hoy && (
+            {abierta ? (
+              <Link href={`/sesion/${abierta.id}`} className="btn btn-primary" style={{ flex: 1.3, fontSize: 14 }}>Seguir sesión <Arrow /></Link>
+            ) : hoy && (
               <form action={startSession} style={{ flex: 1.3, display: 'flex' }}>
                 <input type="hidden" name="dia" value={hoy.id} />
                 <PendingButton style={{ fontSize: 14 }}>{yaHoy ? 'Repetir' : 'Empezar'} <Arrow /></PendingButton>
@@ -91,14 +104,14 @@ export default async function Inicio() {
         <section className="card bg-esquina" style={{ gap: 14, padding: 20 }}>
           {pedido ? (
             <>
-              <span className="label" style={{ color: '#d69ae8' }}>Pedido enviado</span>
+              <span className="label" style={{ color: 'var(--acento-claro)' }}>Pedido enviado</span>
               <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Tu rutina está en camino</span>
               <span className="caption" style={{ color: '#bdbdbd' }}>La entrenadora ya tiene tu pedido. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
               <Link href="/pedir" className="btn btn-outline" style={{ color: '#f5f5f5', boxShadow: 'inset 0 0 0 1.5px #5a5a5a', fontSize: 14 }}>Ver mi pedido</Link>
             </>
           ) : (
             <>
-              <span className="label" style={{ color: '#d69ae8' }}>Paso 1</span>
+              <span className="label" style={{ color: 'var(--acento-claro)' }}>Paso 1</span>
               <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>Pedí tu rutina</span>
               <span className="caption" style={{ color: '#bdbdbd' }}>Contale a la entrenadora qué buscás y cuántos días podés venir. Cuando la arme, aparece acá con tus ejercicios, series y pesos.</span>
               <Link href="/pedir" className="btn btn-primary">Pedir rutina <Arrow /></Link>

@@ -78,7 +78,12 @@ export function frameFor(t: Timers, now = Date.now()) {
  */
 export function openTimerPip() {
   setPipAuto(true);
-  return openPip(() => frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '¡Dale!', sub: 'Marcá la serie y arranca el descanso' });
+  return openPip(() => {
+    const f = frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '¡Dale!', sub: 'Marcá la serie y arranca el descanso' };
+    // Desde otra app: cada tanto recuerda cómo volver (Android no deja abrir la app con un solo toque en la ventanita)
+    if (document.visibilityState === 'hidden' && Math.floor(Date.now() / 3000) % 2 === 1) return { ...f, sub: 'Tocá la ventanita y ⤢ para volver' };
+    return f;
+  });
 }
 export { closePip };
 

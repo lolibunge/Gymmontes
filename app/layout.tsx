@@ -27,15 +27,16 @@ export const viewport: Viewport = {
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   let theme = 'auto';
+  let accent = 'violeta';
   try {
     const u = await currentUser();
-    if (u) theme = u.theme;
+    if (u) { theme = u.theme; accent = u.accent; }
   } catch {
     // sin base todavía: tema automático
   }
   const cls = theme === 'oscuro' ? 't-oscuro' : theme === 'claro' ? 't-claro' : 't-auto';
   return (
-    <html lang="es" className={cls}>
+    <html lang="es" className={`${cls}${accent !== 'violeta' ? ` acc-${accent}` : ''}`}>
       <body>
         {children}
         <SWRegister />

@@ -8,15 +8,15 @@
 }
 .t-oscuro {
   --lona: #0e0e0e; --cuerda: #1c1c1c; --esquina: #1c1c1c; --linea: #2a2a2a;
-  --guante: #f5f5f5; --campana: #a3a3a3; --violeta: #c26bd8; --on-violeta: #111111;
-  --violeta-texto: #d69ae8; --venda: #251429; --alerta: #ff8a80; --alerta-suave: #2e1412;
+  --guante: #f5f5f5; --campana: #a3a3a3; --violeta: var(--acento); --on-violeta: #111111;
+  --violeta-texto: var(--acento-claro); --venda: #251429; --alerta: #ff8a80; --alerta-suave: #2e1412;
   color-scheme: dark;
 }
 @media (prefers-color-scheme: dark) {
   .t-auto {
     --lona: #0e0e0e; --cuerda: #1c1c1c; --esquina: #1c1c1c; --linea: #2a2a2a;
-    --guante: #f5f5f5; --campana: #a3a3a3; --violeta: #c26bd8; --on-violeta: #111111;
-    --violeta-texto: #d69ae8; --venda: #251429; --alerta: #ff8a80; --alerta-suave: #2e1412;
+    --guante: #f5f5f5; --campana: #a3a3a3; --violeta: var(--acento); --on-violeta: #111111;
+    --violeta-texto: var(--acento-claro); --venda: #251429; --alerta: #ff8a80; --alerta-suave: #2e1412;
     color-scheme: dark;
   }
 }
@@ -125,7 +125,7 @@ a, button, input, label, [role='button'] { touch-action: manipulation; }
 .dock-pill, .dock-pip { pointer-events: auto; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 .dock-pill { flex: 1; max-width: 400px; display: flex; align-items: center; gap: 10px; padding: 8px 14px; border-radius: 999px; background: #111; color: #f5f5f5; }
 .dock-dot { width: 8px; height: 8px; border-radius: 999px; flex-shrink: 0; animation: gm-pulse 1.2s ease-in-out infinite; }
-.dock-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #d69ae8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dock-title { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--acento-claro); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dock-sub { font-size: 12px; color: #bdbdbd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dock-time { margin-left: auto; font-family: var(--font-archivo), sans-serif; font-weight: 900; font-size: 22px; font-variant-numeric: tabular-nums; }
 .dock-pip { width: 44px; height: 44px; border: 0; border-radius: 999px; background: #111; color: #f5f5f5; display: flex; align-items: center; justify-content: center; cursor: pointer; }
@@ -156,8 +156,36 @@ body.has-dock .page, body.has-dock .app > section:first-child { padding-top: 12p
 .rest-big { font-family: var(--font-archivo), sans-serif; font-weight: 900; font-size: min(132px, 32vw); line-height: 1; letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
 .rest-modal .ctl { flex: 1; height: 56px; border: 0; border-radius: 4px; background: #2a2a2a; color: #f5f5f5; font-weight: 800; font-size: 17px; cursor: pointer; font-family: var(--font-archivo), sans-serif; }
 .ring { height: 8px; border-radius: 4px; background: #2a2a2a; overflow: hidden; }
-.ring > span { display: block; height: 100%; background: #c26bd8; transition: width .25s linear; }
+.ring > span { display: block; height: 100%; background: var(--acento); transition: width .25s linear; }
 
 /* Calentamiento / enfriamiento */
 .warm-step { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--linea); }
 .warm-step:last-child { border-bottom: 1px solid var(--linea); }
+
+
+/* v1.10 — Color a elección (Perfil → Apariencia). --acento y --acento-claro: el color sobre fondos oscuros (timers, tarjetas negras). */
+:root { --acento: #c26bd8; --acento-claro: #d69ae8; }
+.acc-azul { --acento: #60a5fa; --acento-claro: #93c5fd; }
+.acc-azul, .acc-azul .t-claro { --violeta: #2563eb; --violeta-texto: #1d4ed8; --venda: #e6eefc; --on-violeta: #ffffff; }
+.acc-azul.t-oscuro, .acc-azul .t-oscuro { --violeta: #60a5fa; --violeta-texto: #93c5fd; --venda: #13233f; --on-violeta: #0b1220; }
+@media (prefers-color-scheme: dark) { .acc-azul.t-auto { --violeta: #60a5fa; --violeta-texto: #93c5fd; --venda: #13233f; --on-violeta: #0b1220; } }
+.acc-verde { --acento: #4ade80; --acento-claro: #86efac; }
+.acc-verde, .acc-verde .t-claro { --violeta: #15803d; --violeta-texto: #15803d; --venda: #e3f4e8; --on-violeta: #ffffff; }
+.acc-verde.t-oscuro, .acc-verde .t-oscuro { --violeta: #4ade80; --violeta-texto: #86efac; --venda: #10291a; --on-violeta: #06140b; }
+@media (prefers-color-scheme: dark) { .acc-verde.t-auto { --violeta: #4ade80; --violeta-texto: #86efac; --venda: #10291a; --on-violeta: #06140b; } }
+.acc-turquesa { --acento: #2dd4bf; --acento-claro: #5eead4; }
+.acc-turquesa, .acc-turquesa .t-claro { --violeta: #0d9488; --violeta-texto: #0f766e; --venda: #e0f4f2; --on-violeta: #ffffff; }
+.acc-turquesa.t-oscuro, .acc-turquesa .t-oscuro { --violeta: #2dd4bf; --violeta-texto: #5eead4; --venda: #0d2a27; --on-violeta: #04110f; }
+@media (prefers-color-scheme: dark) { .acc-turquesa.t-auto { --violeta: #2dd4bf; --violeta-texto: #5eead4; --venda: #0d2a27; --on-violeta: #04110f; } }
+.acc-naranja { --acento: #fb923c; --acento-claro: #fdba74; }
+.acc-naranja, .acc-naranja .t-claro { --violeta: #ea580c; --violeta-texto: #c2410c; --venda: #fdece2; --on-violeta: #ffffff; }
+.acc-naranja.t-oscuro, .acc-naranja .t-oscuro { --violeta: #fb923c; --violeta-texto: #fdba74; --venda: #33190b; --on-violeta: #1a0b02; }
+@media (prefers-color-scheme: dark) { .acc-naranja.t-auto { --violeta: #fb923c; --violeta-texto: #fdba74; --venda: #33190b; --on-violeta: #1a0b02; } }
+.acc-rosa { --acento: #f472b6; --acento-claro: #f9a8d4; }
+.acc-rosa, .acc-rosa .t-claro { --violeta: #db2777; --violeta-texto: #be185d; --venda: #fce7f1; --on-violeta: #ffffff; }
+.acc-rosa.t-oscuro, .acc-rosa .t-oscuro { --violeta: #f472b6; --violeta-texto: #f9a8d4; --venda: #34121f; --on-violeta: #1a0510; }
+@media (prefers-color-scheme: dark) { .acc-rosa.t-auto { --violeta: #f472b6; --violeta-texto: #f9a8d4; --venda: #34121f; --on-violeta: #1a0510; } }
+.acc-rojo { --acento: #f87171; --acento-claro: #fca5a5; }
+.acc-rojo, .acc-rojo .t-claro { --violeta: #dc2626; --violeta-texto: #b91c1c; --venda: #fdeaea; --on-violeta: #ffffff; }
+.acc-rojo.t-oscuro, .acc-rojo .t-oscuro { --violeta: #f87171; --violeta-texto: #fca5a5; --venda: #331212; --on-violeta: #1a0505; }
+@media (prefers-color-scheme: dark) { .acc-rojo.t-auto { --violeta: #f87171; --violeta-texto: #fca5a5; --venda: #331212; --on-violeta: #1a0505; } }

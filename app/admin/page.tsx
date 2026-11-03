@@ -115,7 +115,7 @@ export default async function Resumen() {
 
       <section className="card bg-esquina" style={{ gap: 10 }}>
         <div className="row" style={{ alignItems: 'baseline' }}>
-          <span className="label" style={{ color: '#d69ae8' }}>Esta semana</span>
+          <span className="label" style={{ color: 'var(--acento-claro)' }}>Esta semana</span>
           <span className="caption" style={{ color: '#bdbdbd' }}>Semana pasada: {prev?.s ?? 0} {(prev?.s ?? 0) === 1 ? 'sesión' : 'sesiones'}{diff !== null && (semana?.s ?? 0) > 0 ? ` (${diff >= 0 ? '+' : ''}${diff}%)` : ''}</span>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>

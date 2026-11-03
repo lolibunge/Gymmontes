@@ -27,7 +27,7 @@ export default async function Comunidad() {
 
       {sorteo && (
         <section aria-label="Sorteo" className="card bg-esquina" style={{ padding: 18 }}>
-          <span className="label" style={{ color: '#d69ae8' }}>Sorteo</span>
+          <span className="label" style={{ color: 'var(--acento-claro)' }}>Sorteo</span>
           <div className="row">
             <span style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{sorteo.title}</span>

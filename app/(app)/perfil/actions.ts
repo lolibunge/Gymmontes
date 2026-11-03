@@ -7,6 +7,16 @@ import { one } from '@/lib/db';
 import { q } from '@/lib/db';
 import { emailOwner, esc } from '@/lib/notify';
 
+const ACCENTS = ['violeta', 'azul', 'turquesa', 'verde', 'naranja', 'rosa', 'rojo'];
+
+export async function setAccent(form: FormData) {
+  const user = await requireUser();
+  const a = String(form.get('accent'));
+  if (!ACCENTS.includes(a)) return;
+  await q('update users set accent = $1 where id = $2', [a, user.id]);
+  revalidatePath('/', 'layout');
+}
+
 export async function setTheme(form: FormData) {
   const user = await requireUser();
   const t = String(form.get('theme'));

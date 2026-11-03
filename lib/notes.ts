@@ -12,8 +12,8 @@ export async function saveNote(form: FormData): Promise<{ ok: boolean; error?: s
   const context = String(form.get('context') ?? '').trim().slice(0, 200) || null;
   if (!body) return { ok: false, error: 'Escribí algo antes de guardar.' };
   await q('insert into notes (user_id, body, context) values ($1,$2,$3)', [user.id, body, context]);
-  revalidatePath('/perfil/notas');
-  revalidatePath('/admin/notas');
+  // Sin revalidatePath: así guardar una nota no recarga la pantalla de la sesión
+  // (las páginas de notas son dinámicas y se ven al día igual).
   return { ok: true };
 }
 

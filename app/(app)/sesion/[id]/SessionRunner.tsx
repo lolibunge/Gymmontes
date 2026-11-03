@@ -18,10 +18,11 @@ import { askNotifications } from '@/lib/bgnotify';
 
 type Row = { kg: string; reps: string; done: boolean; minutes: number | null };
 export type RunnerItem = {
-  id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; sets: number; reps: string | null;
+  id: number; kind: 'ejercicio' | 'cardio'; name: string; slug: string; muscle?: string | null; sets: number; reps: string | null;
   note: string | null; rest: number; raise: boolean;
   feel: 'liviano' | 'justo' | 'pesado' | null; segments: { label: string; min: number }[] | null;
   target: number | null; prev: { date: string; kg: string | null; reps: string } | null; rows: Row[];
+  suggest?: { dir: 'up' | 'down'; from: number; to: number; step: number } | null;
 };
 
 /** "40–60 s" → ejercicio por tiempo, de 40 a 60 segundos. */
@@ -31,6 +32,7 @@ export function timedRange(reps: string | null): [number, number] | null {
   return n.length ? [n[0], n[n.length - 1]] : null;
 }
 
+const kgTxt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
 export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, startAtWarmup, warm, cool, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; startAtWarmup: boolean; warm: WarmStep[]; cool: WarmStep[]; spotify: string }) {
@@ -219,6 +221,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
             <span className="strong">{minutes} minutos por tramos</span>
           )}
         </div>
+        {it.muscle && it.kind === 'ejercicio' && <MuscleChips muscle={it.muscle} />}
         {it.note && <p className="caption muted">{it.note}</p>}
       </section>
 
@@ -226,7 +229,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
           <span style={{ display: 'flex', alignItems: 'flex-start', gap: 8, minWidth: 0, flex: '1 1 100%' }}>
             <span style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0, flex: 1 }}>
-              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#d69ae8' }}>DESCANSO</span>
+              <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: 'var(--acento-claro)' }}>DESCANSO</span>
               <span className="rest-time" style={isEnding((rest.endsAt - now) / 1000) ? { color: ENDING_RED } : undefined}>{mmss((rest.endsAt - now) / 1000)}</span>
               <span style={{ fontSize: 12, color: '#bdbdbd' }}>{rest.label}</span>
             </span>
@@ -242,6 +245,12 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       {it.kind === 'ejercicio' ? (
         <section>
           {timedRange(it.reps) && it.raise && <p className="card bg-venda strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8 }}><span className="brand">▲ Hoy probá con {timedRange(it.reps)![1]} segundos.</span></p>}
+          {it.suggest && !timedRange(it.reps) && (
+            <p className="card strong" style={{ padding: '10px 14px', fontSize: 14, marginBottom: 8, background: it.suggest.dir === 'up' ? 'var(--venda)' : 'var(--alerta-suave)', color: it.suggest.dir === 'up' ? 'var(--violeta-texto)' : 'var(--alerta)' }}>
+              {it.suggest.dir === 'up' ? '▲' : '▼'} Hoy {kgTxt(it.suggest.to)} kg ({it.suggest.dir === 'up' ? '+' : '−'}{kgTxt(it.suggest.step)}): la vez pasada te resultó {it.suggest.dir === 'up' ? 'liviano' : 'pesado'}.
+              <span className="caption muted" style={{ display: 'block', fontWeight: 400 }}>Ya está cargado en las series. Si no te sale, cambialo.</span>
+            </p>
+          )}
           {it.prev ? (
             <div className="row bg-venda" style={{ padding: '12px 14px', borderRadius: 4, fontSize: 13, color: 'var(--violeta-texto)' }}>
               <span>La vez pasada ({corta(it.prev.date)})</span>
@@ -389,6 +398,20 @@ function ExpandIcon() {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path d="M2.5 7V2.5H7M11 2.5h4.5V7M15.5 11v4.5H11M7 15.5H2.5V11" stroke="currentColor" strokeWidth="1.8" />
     </svg>
+  );
+}
+
+/** "Piernas · cuádriceps y glúteos" → chips "Cuádriceps" "Glúteos" (zona que trabaja el ejercicio). */
+function MuscleChips({ muscle }: { muscle: string }) {
+  const [zona, detalle] = muscle.includes('·') ? muscle.split('·').map((x) => x.trim()) : [null, muscle.trim()];
+  const parts = detalle.split(/,|\sy\s|\+/).map((x) => x.trim()).filter(Boolean);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} aria-label={`Trabaja: ${muscle}`}>
+      <span className="caption muted">Trabaja{zona ? ` · ${zona.toLowerCase()}` : ''}:</span>
+      {parts.map((m) => (
+        <span key={m} className="badge" style={{ background: 'var(--venda)', color: 'var(--violeta-texto)', fontWeight: 600 }}>{m.charAt(0).toUpperCase() + m.slice(1)}</span>
+      ))}
+    </div>
   );
 }
 

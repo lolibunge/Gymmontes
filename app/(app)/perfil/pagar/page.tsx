@@ -26,7 +26,7 @@ export default async function Pagar() {
         <section className="card bg-esquina" style={{ gap: 8 }}>
           {cfg.fee && (
             <div className="row" style={{ alignItems: 'baseline' }}>
-              <span className="label" style={{ color: '#d69ae8' }}>Cuota mensual</span>
+              <span className="label" style={{ color: 'var(--acento-claro)' }}>Cuota mensual</span>
               <span className="number" style={{ color: '#f5f5f5', fontSize: 28 }}>{cfg.fee}</span>
             </div>
           )}

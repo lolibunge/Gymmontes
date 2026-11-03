@@ -217,3 +217,13 @@ export async function raiseSignals(userId: number, items: Item[], upTo?: string,
   }
   return out;
 }
+
+/** La sesión de hoy que quedó sin terminar (si te fuiste sin querer), para mostrar "Seguir sesión". */
+export async function openSessionToday(userId: number) {
+  return one<{ id: number; day_id: number; done: number }>(
+    `select s.id, s.day_id, (select count(*)::int from set_logs l where l.session_id = s.id and l.done) as done
+       from sessions s where s.user_id = $1 and s.date = $2 and s.finished_at is null
+      order by s.id desc limit 1`,
+    [userId, today()]
+  );
+}

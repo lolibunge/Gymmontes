@@ -124,7 +124,7 @@ export async function fillPlanned(form: FormData) {
       );
     }
   }
-  redirect(`/sesion/${s.id}?paso=0`);
+  redirect(`/sesion/${s.id}?paso=0&r=${Date.now()}`);
 }
 
 export async function saveFeel(sessionId: number, itemId: number, feel: 'liviano' | 'justo' | 'pesado' | null) {

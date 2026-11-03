@@ -47,7 +47,7 @@ export default async function Ficha({ params, searchParams }: { params: { slug: 
           <p style={{ alignSelf: 'center', textAlign: 'center', fontSize: 13, color: '#bdbdbd', padding: '24px 0' }}>Acá va el video de la máquina<br />(lo sube la entrenadora)</p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {ex.muscle && <span className="label" style={{ color: '#d69ae8' }}>{ex.muscle}</span>}
+          {ex.muscle && <span className="label" style={{ color: 'var(--acento-claro)' }}>{ex.muscle}</span>}
           <h1 className="title-lg" style={{ fontSize: ex.name.length > 16 ? 36 : 56, lineHeight: 1 }}>{ex.name}</h1>
         </div>
       </section>

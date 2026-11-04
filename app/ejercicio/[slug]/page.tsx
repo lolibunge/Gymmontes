@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
 import { DIAS } from '@/lib/dates';
 import CloseButton from '@/components/CloseButton';
+import MuscleMap from '@/components/MuscleMap';
 import { weightLabel } from '@/lib/data';
 import { videoFor } from '@/lib/video';
 
@@ -52,6 +53,12 @@ export default async function Ficha({ params, searchParams }: { params: { slug: 
         </div>
       </section>
       <main className="page tight" style={{ paddingBottom: 40 }}>
+        {ex.muscle !== 'Cardio' && (
+          <section>
+            <h2 className="label" style={{ paddingBottom: 8 }}>Qué músculos trabaja</h2>
+            <MuscleMap muscle={ex.muscle} name={ex.name} size={150} />
+          </section>
+        )}
         <section>
           <h2 className="label" style={{ paddingBottom: 4 }}>Cómo se hace</h2>
           {ex.steps.length ? (

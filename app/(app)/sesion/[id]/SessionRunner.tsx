@@ -11,6 +11,7 @@ import { useWakeLock } from '@/lib/wakelock';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { closePip, pipAuto, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
 import NoteSheet from '@/components/NoteSheet';
+import MuscleMap from '@/components/MuscleMap';
 import RestModal from '@/components/RestModal';
 import WarmPanel from './WarmPanel';
 import type { WarmStep } from '@/lib/warmup';
@@ -221,7 +222,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
             <span className="strong">{minutes} minutos por tramos</span>
           )}
         </div>
-        {it.muscle && it.kind === 'ejercicio' && <MuscleChips muscle={it.muscle} />}
+        {it.kind === 'ejercicio' && <MuscleMap muscle={it.muscle} name={it.name} size={130} />}
         {it.note && <p className="caption muted">{it.note}</p>}
       </section>
 
@@ -398,20 +399,6 @@ function ExpandIcon() {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
       <path d="M2.5 7V2.5H7M11 2.5h4.5V7M15.5 11v4.5H11M7 15.5H2.5V11" stroke="currentColor" strokeWidth="1.8" />
     </svg>
-  );
-}
-
-/** "Piernas · cuádriceps y glúteos" → chips "Cuádriceps" "Glúteos" (zona que trabaja el ejercicio). */
-function MuscleChips({ muscle }: { muscle: string }) {
-  const [zona, detalle] = muscle.includes('·') ? muscle.split('·').map((x) => x.trim()) : [null, muscle.trim()];
-  const parts = detalle.split(/,|\sy\s|\+/).map((x) => x.trim()).filter(Boolean);
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }} aria-label={`Trabaja: ${muscle}`}>
-      <span className="caption muted">Trabaja{zona ? ` · ${zona.toLowerCase()}` : ''}:</span>
-      {parts.map((m) => (
-        <span key={m} className="badge" style={{ background: 'var(--venda)', color: 'var(--violeta-texto)', fontWeight: 600 }}>{m.charAt(0).toUpperCase() + m.slice(1)}</span>
-      ))}
-    </div>
   );
 }
 

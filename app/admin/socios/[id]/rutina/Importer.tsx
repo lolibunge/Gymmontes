@@ -15,13 +15,14 @@ export default function Importer({ userId, defaultTitle, defaultObjective }: { u
     <>
       <form action={action} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 14 }}>
         <span className="strong">2. Subí el archivo o pegá el link</span>
-        <label className="field"><span>Link de Google Sheets</span>
+        <label className="field"><span>PDF de la rutina</span>
+          <input name="file" type="file" accept=".pdf,application/pdf,.csv,text/csv,text/plain" style={{ fontSize: 14 }} />
+        </label>
+        <span className="caption muted">El PDF de “Planificación de entrenamiento” de GYM MONTES. También sirve un CSV con la planilla modelo.</span>
+        <label className="field"><span>O link de Google Sheets</span>
           <input className="input" name="link" type="url" placeholder="https://docs.google.com/spreadsheets/d/…" />
         </label>
         <span className="caption muted">La planilla tiene que estar compartida como “Cualquier persona con el enlace · Lector”.</span>
-        <label className="field"><span>O archivo CSV</span>
-          <input name="file" type="file" accept=".csv,text/csv,text/plain" style={{ fontSize: 14 }} />
-        </label>
         {state.error && <p role="alert" style={{ color: 'var(--alerta)', fontWeight: 600, fontSize: 14 }}>{state.error}</p>}
         <Btn primary={!state.days}>Ver vista previa</Btn>
       </form>
@@ -57,8 +58,8 @@ export default function Importer({ userId, defaultTitle, defaultObjective }: { u
               {d.note && <p className="caption muted" style={{ fontStyle: 'italic', paddingTop: 4 }}>{d.note}</p>}
             </div>
           ))}
-          <label className="field"><span>Nombre de la rutina</span><input className="input" name="title" defaultValue={defaultTitle} /></label>
-          <label className="field"><span>Objetivo (lo ve el socio)</span><textarea className="input" name="objective" rows={3} defaultValue={defaultObjective} /></label>
+          <label className="field"><span>Nombre de la rutina</span><input className="input" name="title" key={`t${state.title}`} defaultValue={state.title || defaultTitle} /></label>
+          <label className="field"><span>Objetivo (lo ve el socio)</span><textarea className="input" name="objective" rows={3} key={`o${state.objective}`} defaultValue={state.objective || defaultObjective} /></label>
           <span className="caption muted">Al guardar, reemplaza la rutina actual. Su historial de pesos no se borra.</span>
           <Btn>Guardar y enviar al socio →</Btn>
         </form>

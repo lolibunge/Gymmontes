@@ -178,6 +178,15 @@ create table if not exists news (
   title text not null,
   body text
 );
+alter table news add column if not exists until date;
+create table if not exists phrases (
+  id serial primary key,
+  text text not null,
+  author text,
+  active boolean not null default true,
+  position int not null default 0,
+  created_at timestamptz not null default now()
+);
 create table if not exists notes (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,
@@ -266,6 +275,7 @@ async function main() {
       await ensurePaySettings(client);
       await ensureExerciseInfo(client);
       await cleanupV11(client);
+      await ensurePhrases(client);
       return;
     }
     console.log('[db] Cargando datos de ejemplo…');
@@ -332,6 +342,7 @@ async function main() {
     await ensureOwners(client);
     await ensurePaySettings(client);
     await ensureExerciseInfo(client);
+    await ensurePhrases(client);
     console.log('[db] Listo.');
   } catch (e) {
     await client.query('rollback').catch(() => {});
@@ -407,6 +418,26 @@ async function cleanupV11(client) {
   );
   await client.query(`insert into gym_settings (key, value) values ('cleanup_v1_1', now()::text) on conflict (key) do nothing`);
   console.log(`[db] v1.1: ${demo.rowCount} sesión de ejemplo y ${empty.rowCount} sesiones vacías borradas.`);
+}
+
+/** Frases motivadoras de ejemplo para el banner del Inicio (solo la primera vez; la dueña las edita en Gym → Frases). */
+async function ensurePhrases(client) {
+  const { rows } = await client.query('select count(*)::int as n from phrases');
+  const seeded = await client.query(`select 1 from gym_settings where key = 'phrases_seeded'`);
+  if (rows[0].n > 0 || seeded.rowCount) return;
+  const FRASES = [
+    'No tiene que ser perfecto. Tiene que ser constante.',
+    'El entrenamiento más difícil es el de los días que no tenés ganas. Y es el que más suma.',
+    'Escuchá a tu cuerpo: hay días para empujar y días para cuidarte.',
+    'Cada repetición cuenta, aunque hoy sean menos.',
+    'Venir ya es la mitad del entrenamiento.',
+    'Tu único rival es la versión de vos de la semana pasada.',
+    'La técnica primero; el peso llega solo.',
+    'Descansar también es entrenar.',
+  ];
+  for (let k = 0; k < FRASES.length; k++) await client.query('insert into phrases (text, position) values ($1, $2)', [FRASES[k], k]);
+  await client.query(`insert into gym_settings (key, value) values ('phrases_seeded', 'si') on conflict do nothing`);
+  console.log(`[db] ${FRASES.length} frases de ejemplo cargadas.`);
 }
 
 async function ensureOwners(client) {

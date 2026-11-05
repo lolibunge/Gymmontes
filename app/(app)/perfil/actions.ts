@@ -37,9 +37,10 @@ export async function saveDatos(form: FormData) {
   const b = parseBirth(rawBirth);
   if (rawBirth && !b) redirect('/perfil/datos?error=nacimiento');
   await q(
-    `update users set name = coalesce($1, name), phone = $2, birth = $3, weight_kg = $4, height_cm = $5, emergency = $6, show_birthday = $7, hormonal = $9 where id = $8`,
+    `update users set name = coalesce($1, name), phone = $2, birth = $3, weight_kg = $4, height_cm = $5, emergency = $6, show_birthday = $7, hormonal = $9, nickname = $10 where id = $8`,
     [clean(form.get('name')), clean(form.get('phone')), b ? formatBirth(b) : null, num(form.get('weight')), num(form.get('height')), clean(form.get('emergency')), form.get('show_birthday') === 'on', user.id,
-     ['ninguno', 'ciclo', 'menopausia'].includes(String(form.get('hormonal'))) ? String(form.get('hormonal')) : 'ninguno']
+     ['ninguno', 'ciclo', 'menopausia'].includes(String(form.get('hormonal'))) ? String(form.get('hormonal')) : 'ninguno',
+     (clean(form.get('nickname')) ?? '').slice(0, 24) || null]
   );
   revalidatePath('/', 'layout');
   revalidatePath('/perfil');

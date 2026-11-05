@@ -13,6 +13,7 @@ export default async function Datos({ searchParams }: { searchParams: { ok?: str
       <h1 className="title">Datos personales</h1>
       <form action={saveDatos} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
         <label className="field"><span>Nombre</span><input className="input" name="name" defaultValue={u.name} autoComplete="name" /></label>
+        <label className="field"><span>Apodo · cómo te saludamos</span><input className="input" name="nickname" defaultValue={u.nickname ?? ''} maxLength={24} autoComplete="nickname" placeholder={u.name.split(' ')[0]} /></label>
         <label className="field"><span>Email</span><input className="input" value={u.email} readOnly aria-readonly="true" style={{ color: 'var(--campana)' }} /></label>
         <div style={{ display: 'flex', gap: 12 }}>
           <label className="field" style={{ flex: 1 }}><span>Celular</span><input className="input" name="phone" type="tel" defaultValue={u.phone ?? ''} autoComplete="tel" placeholder="09…" /></label>

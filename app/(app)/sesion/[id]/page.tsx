@@ -4,6 +4,7 @@ import { one, q } from '@/lib/db';
 import { dayById } from '@/lib/data';
 import { addDays, today, weekdayOf } from '@/lib/dates';
 import { warmupSettings } from '@/lib/warmup';
+import type { Checkin, Hormonal } from '@/lib/checkin';
 import SessionRunner, { type RunnerItem } from './SessionRunner';
 
 type Prev = { exercise_id: number; date: string; set_no: number; kg: string | null; reps: number | null; feel: 'liviano' | 'justo' | 'pesado' | null };
@@ -22,7 +23,7 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
   if (!day) notFound();
   const exIds = day.items.filter((i) => i.kind === 'ejercicio').map((i) => i.exercise_id);
   // Todo en paralelo y en pocas consultas: la pantalla abre más rápido con la señal del gym
-  const [logs, feels, prevs, warm] = await Promise.all([
+  const [logs, feels, prevs, warm, checkin] = await Promise.all([
     q<{ item_id: number; set_no: number; kg: string | null; reps: number | null; minutes: number | null; done: boolean }>(
       'select item_id, set_no, kg::text as kg, reps, minutes, done from set_logs where session_id = $1', [s.id]),
     q<{ item_id: number; feel: 'liviano' | 'justo' | 'pesado' }>('select item_id, feel from set_feel where session_id = $1', [s.id]),
@@ -40,7 +41,9 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
         order by last.exercise_id, l.set_no`,
       [user.id, exIds, s.id, s.date]) : Promise.resolve([] as Prev[]),
     warmupSettings(),
+    one<Checkin>(`select energy, sleep, signals, period, note, rpe, after_note from session_checkins where session_id = $1 and user_id = $2`, [s.id, user.id]),
   ]);
+  const hormonal = (await one<{ h: Hormonal }>(`select coalesce(hormonal, 'ninguno') as h from users where id = $1`, [user.id]))?.h ?? 'ninguno';
   const items: RunnerItem[] = day.items.map((it) => {
     const p = it.kind === 'ejercicio' ? prevs.filter((x) => x.exercise_id === it.exercise_id) : [];
     const mine = logs.filter((l) => l.item_id === it.id);
@@ -81,6 +84,7 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
     <SessionRunner back={back} key={`${s.id}-${searchParams.r ?? ''}`} sessionId={s.id} date={s.date} past={past} finished={s.finished} items={items}
       // paso -1 = calentamiento, paso = cantidad de ejercicios = enfriamiento
       start={Math.max(-1, Math.min(items.length, start))} startAtWarmup={paso == null && nothingDone && !past}
+      checkin={checkin} hormonal={hormonal}
       warm={past ? [] : warm.warm} cool={past ? [] : warm.cool}
       spotify={process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST || 'https://open.spotify.com/search/workout'} />
   );

@@ -6,7 +6,7 @@ import ChangePassword from './ChangePassword';
 
 export default async function Datos({ searchParams }: { searchParams: { ok?: string; error?: string } }) {
   const u = await requireUser();
-  const pw = await one<{ has: boolean; show: boolean }>(`select pin_hash <> '' as has, show_birthday as show from users where id = $1`, [u.id]);
+  const pw = await one<{ has: boolean; show: boolean; hormonal: string }>(`select pin_hash <> '' as has, show_birthday as show, coalesce(hormonal, 'ninguno') as hormonal from users where id = $1`, [u.id]);
   return (
     <main className="page tight">
       <BackBar href="/perfil" label="Volver a Perfil" right={searchParams.ok ? <span className="strong brand" style={{ fontSize: 14 }}>Guardado</span> : null} />
@@ -28,6 +28,15 @@ export default async function Datos({ searchParams }: { searchParams: { ok?: str
           <label className="field" style={{ flex: 1 }}><span>Peso (kg)</span><input className="input" name="weight" inputMode="decimal" defaultValue={u.weight_kg ? Number(u.weight_kg) : ''} placeholder="—" /></label>
           <label className="field" style={{ flex: 1 }}><span>Altura (cm)</span><input className="input" name="height" inputMode="numeric" defaultValue={u.height_cm ? Number(u.height_cm) : ''} placeholder="—" /></label>
         </div>
+        <h2 className="label" style={{ paddingTop: 6 }}>Registro de cómo llegás</h2>
+        <label className="field"><span>Seguimiento hormonal (opcional)</span>
+          <select className="input" name="hormonal" defaultValue={pw?.hormonal ?? 'ninguno'}>
+            <option value="ninguno">Ninguno</option>
+            <option value="ciclo">Ciclo menstrual</option>
+            <option value="menopausia">Perimenopausia o menopausia</option>
+          </select>
+        </label>
+        <p className="caption muted" style={{ marginTop: -6 }}>Con <b>Ciclo menstrual</b>, al empezar cada sesión podés marcar si estás con el período y en tu historial ves en qué día del ciclo entrenaste. Con <b>Menopausia</b> se suman señales como sofocos o sueño cortado. Es privado: solo lo ves vos.</p>
         <h2 className="label" style={{ paddingTop: 6 }}>Contacto de emergencia</h2>
         <label className="field"><span className="sr">Contacto de emergencia</span><input className="input" name="emergency" defaultValue={u.emergency ?? ''} placeholder="Nombre y teléfono" /></label>
         <button className="btn btn-primary" style={{ justifyContent: 'center', marginTop: 6 }}>Guardar</button>

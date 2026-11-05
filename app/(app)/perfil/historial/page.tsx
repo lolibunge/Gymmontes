@@ -4,19 +4,19 @@ import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { DIAS, dia2, mesCorto, today, weekdayOf } from '@/lib/dates';
-import { routineDays } from '@/lib/data';
+import { DURATION_SQL, durTxt, routineDays } from '@/lib/data';
 import { startPastSession } from '../../sesion/actions';
 import { ENERGY, cycleDay, rpeLabel, type Checkin } from '@/lib/checkin';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-type S = { id: number; date: string; title: string | null; subtitle: string | null };
+type S = { id: number; date: string; title: string | null; subtitle: string | null; minutes: number | null };
 type L = { session_id: number; position: number; name: string; kind: string; reps_target: string | null; kg: string | null; reps: number | null; minutes: number | null; raise: boolean };
 
 export default async function Historial({ searchParams }: { searchParams: { ok?: string; error?: string; fecha?: string } }) {
   const u = await requireUser();
   const sessions = await q<S>(
-    `select s.id, to_char(s.date,'YYYY-MM-DD') as date, d.title, d.subtitle from sessions s
+    `select s.id, to_char(s.date,'YYYY-MM-DD') as date, d.title, d.subtitle, ${DURATION_SQL} as minutes from sessions s
        left join routine_days d on d.id = s.day_id
       where s.user_id = $1 and s.finished_at is not null order by s.date desc, s.id desc limit 40`,
     [u.id]
@@ -72,6 +72,17 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
           </form>
         </details>
       )}
+      {(() => {
+        const mes = today().slice(0, 7);
+        const delMes = sessions.filter((s) => s.date.startsWith(mes));
+        const min = delMes.reduce((a, s) => a + (s.minutes ?? 0), 0);
+        return delMes.length > 0 && (
+          <section className="row" style={{ padding: '12px 0', borderTop: '1px solid var(--linea)' }} aria-label="Este mes">
+            <span className="caption muted">Este mes</span>
+            <span className="strong">{plural(delMes.length, 'sesión', 'sesiones')}{min > 0 ? ` · ⏱ ${durTxt(min)}` : ''}</span>
+          </section>
+        );
+      })()}
       {sessions.length === 0 && <p className="muted">Todavía no terminaste ninguna sesión. Cuando termines una, aparece acá con todos tus pesos.</p>}
       <div>
         {sessions.map((s) => {
@@ -94,7 +105,7 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
                 </span>
                 <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span className="strong">{s.subtitle ?? s.title ?? 'Sesión'}</span>
-                  <span className="caption muted">{DIAS[weekdayOf(s.date)]} · {plural(byEx.filter((x) => x.kind === 'ejercicio').length, 'ejercicio', 'ejercicios')} · {plural(series, 'serie', 'series')}</span>
+                  <span className="caption muted">{DIAS[weekdayOf(s.date)]} · {plural(byEx.filter((x) => x.kind === 'ejercicio').length, 'ejercicio', 'ejercicios')} · {plural(series, 'serie', 'series')}{s.minutes != null ? ` · ⏱ ${durTxt(s.minutes)}` : ''}</span>
                 </span>
                 {c && (c.energy || c.rpe) && (
                   <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }} aria-label={`Energía ${c.energy ?? '—'}, esfuerzo ${c.rpe ?? '—'}`}>

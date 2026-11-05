@@ -28,7 +28,6 @@ export default function RestModal({ rest, now, pipOk, onClose, onSkip, onAsk }: 
         <header className="row">
           <span className="label" style={{ color: 'var(--acento-claro)' }}>Descanso</span>
           <span style={{ display: 'flex', gap: 8 }}>
-            {pipOk && <button type="button" className="icon-btn" onClick={() => openTimerPip()} aria-label="Ventanita flotante" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><PipIcon /></button>}
             <button type="button" className="icon-btn" onClick={onClose} aria-label="Achicar (el descanso sigue)" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><Close /></button>
           </span>
         </header>
@@ -54,6 +53,12 @@ export default function RestModal({ rest, now, pipOk, onClose, onSkip, onAsk }: 
         )}
         {perm === 'denied' && <p style={{ fontSize: 12, color: '#a3a3a3' }}>Los avisos están bloqueados. Activalos en los ajustes del navegador para este sitio si querés que te avise desde otras apps.</p>}
 
+        {pipOk && (
+          <button type="button" className="ctl" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+            onClick={() => { openTimerPip(); onClose(); }}>
+            <PipIcon /> Poner flotante (se ve en otras apps)
+          </button>
+        )}
         <div style={{ display: 'flex', gap: 8 }}>
           <button type="button" className="ctl" onClick={() => adjustRest(-15)} aria-label="15 segundos menos">−15</button>
           <button type="button" className="ctl" onClick={() => adjustRest(15)} aria-label="15 segundos más">+15</button>

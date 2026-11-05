@@ -139,6 +139,17 @@ export async function news(limit = 5) {
   return [...bdays, ...rows.map((r) => ({ ...r, birthday: false }))];
 }
 
+/**
+ * Duración de la sesión en minutos: de que la empezaste a que la terminaste.
+ * Null si no tiene sentido (sesiones cargadas otro día, o más de 4 h porque quedó abierta).
+ */
+export const DURATION_SQL = `case when s.finished_at is not null
+    and (s.started_at at time zone 'America/Montevideo')::date = s.date
+    and s.finished_at - s.started_at between interval '3 minutes' and interval '4 hours'
+  then round(extract(epoch from s.finished_at - s.started_at) / 60)::int end`;
+
+export const durTxt = (m: number | null | undefined) => (m == null ? null : m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`);
+
 export async function stats(userId: number) {
   const total = await one<{ n: number }>('select count(*)::int as n from sessions where user_id = $1 and finished_at is not null', [userId]);
   const weeks = await q<{ w: string }>(
@@ -151,12 +162,13 @@ export async function stats(userId: number) {
   const set = new Set(weeks.map((x) => x.w));
   if (!set.has(expect)) expect = addDays(expect, -7);
   while (set.has(expect)) { streak++; expect = addDays(expect, -7); }
-  const up = await one<{ n: number }>(
-    `select count(*)::int as n from day_items i join routine_days d on d.id = i.day_id join routines r on r.id = d.routine_id
-      where r.user_id = $1 and r.active and i.raise_weight and not i.removed`,
-    [userId]
+  // Minutos entrenados este mes (solo sesiones hechas en el momento, no las cargadas después)
+  const mins = await one<{ m: number }>(
+    `select coalesce(sum(${DURATION_SQL}), 0)::int as m from sessions s
+      where s.user_id = $1 and s.finished_at is not null and to_char(s.date,'YYYY-MM') = $2`,
+    [userId, today().slice(0, 7)]
   );
-  return { total: total?.n ?? 0, streak, toRaise: up?.n ?? 0 };
+  return { total: total?.n ?? 0, streak, monthMinutes: mins?.m ?? 0 };
 }
 
 export type Raise = { dir: 'up' | 'down'; reason: 'planilla' | 'reps' | 'liviano' | 'pesado'; kg: number | null; next: number | null };

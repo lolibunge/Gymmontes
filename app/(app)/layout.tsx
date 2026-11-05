@@ -8,7 +8,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const u = await requireUser();
   if (u.role === 'duena') redirect('/admin');
   return (
-    <div className="app">
+    <div className="app noselect">
       {children}
       <TabBar />
     </div>

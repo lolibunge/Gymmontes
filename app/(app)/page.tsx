@@ -14,6 +14,7 @@ export default async function Inicio() {
     todaysPlan(user.id), weekDone(user.id), membership(user.id), challenge(), monthCount(user.id), news(2),
   ]);
   const plan = hoy ?? proximo;
+  const medida = await one<{ dias: number }>(`select (current_date - max(date))::int as dias from body_measurements where user_id = $1`, [user.id]);
   // Solo cuenta como "sin terminar" si tiene alguna serie hecha (una vacía no se ofrece para seguir)
   const abierta = await openSessionToday(user.id).then((a) => (a && a.done > 0 ? a : null));
   const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
@@ -148,6 +149,16 @@ export default async function Inicio() {
             })}
           </div>
         </section>
+      )}
+
+      {medida?.dias != null && medida.dias >= 7 && (
+        <Link href="/perfil/medidas" className="card bg-cuerda" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', color: 'var(--guante)' }}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="strong">📏 Toca medirte</span>
+            <span className="caption muted">Pasaron {medida.dias} días desde tu última medición</span>
+          </span>
+          <span className="link">Cargar</span>
+        </Link>
       )}
 
       {reto && (

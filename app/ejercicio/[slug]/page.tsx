@@ -4,6 +4,7 @@ import { requireUser } from '@/lib/auth';
 import { one, q } from '@/lib/db';
 import { DIAS } from '@/lib/dates';
 import CloseButton from '@/components/CloseButton';
+import MuscleMap from '@/components/MuscleMap';
 import { weightLabel } from '@/lib/data';
 import { videoFor } from '@/lib/video';
 
@@ -47,11 +48,17 @@ export default async function Ficha({ params, searchParams }: { params: { slug: 
           <p style={{ alignSelf: 'center', textAlign: 'center', fontSize: 13, color: '#bdbdbd', padding: '24px 0' }}>Acá va el video de la máquina<br />(lo sube la entrenadora)</p>
         )}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {ex.muscle && <span className="label" style={{ color: '#d69ae8' }}>{ex.muscle}</span>}
+          {ex.muscle && <span className="label" style={{ color: 'var(--acento-claro)' }}>{ex.muscle}</span>}
           <h1 className="title-lg" style={{ fontSize: ex.name.length > 16 ? 36 : 56, lineHeight: 1 }}>{ex.name}</h1>
         </div>
       </section>
       <main className="page tight" style={{ paddingBottom: 40 }}>
+        {ex.muscle !== 'Cardio' && (
+          <section>
+            <h2 className="label" style={{ paddingBottom: 8 }}>Qué músculos trabaja</h2>
+            <MuscleMap muscle={ex.muscle} name={ex.name} size={150} />
+          </section>
+        )}
         <section>
           <h2 className="label" style={{ paddingBottom: 4 }}>Cómo se hace</h2>
           {ex.steps.length ? (

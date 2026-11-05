@@ -9,7 +9,8 @@
 export type SetOp = { t: 'set'; s: number; i: number; n: number; kg: number | null; reps: number | null; done: boolean };
 export type FeelOp = { t: 'feel'; s: number; i: number; feel: 'liviano' | 'justo' | 'pesado' | null };
 export type CardioOp = { t: 'cardio'; s: number; i: number; minutes: number };
-export type Op = SetOp | FeelOp | CardioOp;
+export type CheckinOp = { t: 'checkin'; s: number; i: 0; c: import('./checkin').Checkin };
+export type Op = SetOp | FeelOp | CardioOp | CheckinOp;
 
 const KEY = 'gm-outbox';
 const listeners = new Set<(n: number) => void>();
@@ -100,7 +101,7 @@ export function startOutbox() {
 /* ---------- Borrador local de la sesión (lo que se ve en pantalla) ---------- */
 
 export type DraftRow = { kg: string; reps: string; done: boolean };
-export type Draft = { at: number; items: Record<number, { rows: DraftRow[]; feel?: 'liviano' | 'justo' | 'pesado' | null }>; phase?: { warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado' } };
+export type Draft = { at: number; items: Record<number, { rows: DraftRow[]; feel?: 'liviano' | 'justo' | 'pesado' | null }>; phase?: { warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado'; checkin?: 'hecho' | 'salteado' }; checkin?: import('./checkin').Checkin };
 
 const dKey = (s: number) => `gm-sesion-${s}`;
 

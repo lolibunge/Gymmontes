@@ -6,6 +6,7 @@ import { DIAS, DIAS_CORTO, addDays, corta, dia2, today, weekdayOf } from '@/lib/
 import { Arrow, Back, Check, Chevron, Music } from '@/components/Icons';
 import { q } from '@/lib/db';
 import { startPastSession, startSession } from '../sesion/actions';
+import { openSessionToday } from '@/lib/data';
 
 type Log = { session_id: number; date: string; name: string; kind: string; kg: string | null; reps: number | null; minutes: number | null };
 
@@ -59,6 +60,7 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
   const weekLabel = offset === 0 ? 'Esta semana' : offset === -1 ? 'Semana pasada' : offset === 1 ? 'Semana que viene' : `Semana del ${corta(monday)}`;
   const href = (m: string, d?: number) => `/rutina?semana=${m}${d ? `&dia=${d}` : ''}`;
   const ejercicios = day.items.filter((i) => i.kind === 'ejercicio');
+  const abierta = isToday ? await openSessionToday(user.id) : null;
   const cardio = day.items.filter((i) => i.kind === 'cardio');
   const total = ejercicios.reduce((a, i) => a + (i.sets ?? 0) * 2.5, 0) + cardio.reduce((a, c) => a + minutes(c.segments), 0);
 
@@ -169,6 +171,8 @@ export default async function Rutina({ searchParams }: { searchParams: { dia?: s
                 <input type="hidden" name="dia" value={day.id} />
                 <PendingButton className="btn btn-outline" style={{ width: '100%', background: 'var(--lona)' }}>Cargar la sesión del {corta(date)}</PendingButton>
               </form>
+            ) : abierta && isToday && abierta.day_id === day.id ? (
+              <Link href={`/sesion/${abierta.id}`} className="btn btn-primary">Seguir sesión <Arrow /></Link>
             ) : (
               <form action={startSession}>
                 <input type="hidden" name="dia" value={day.id} />

@@ -33,6 +33,20 @@ create table if not exists users (
 );
 alter table users add column if not exists auth_provider text not null default 'password';
 alter table users add column if not exists show_birthday boolean not null default true;
+alter table users add column if not exists accent text not null default 'violeta';
+alter table users add column if not exists hormonal text not null default 'ninguno';
+create table if not exists session_checkins (
+  session_id int primary key references sessions(id) on delete cascade,
+  user_id int not null references users(id) on delete cascade,
+  energy int check (energy between 1 and 5),
+  sleep text check (sleep in ('mal','normal','bien')),
+  signals text[] not null default '{}',
+  period boolean,
+  note text,
+  rpe int check (rpe between 1 and 10),
+  after_note text,
+  updated_at timestamptz not null default now()
+);
 create table if not exists exercises (
   id serial primary key,
   slug text not null unique,

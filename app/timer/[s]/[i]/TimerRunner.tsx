@@ -8,6 +8,7 @@ import { cardioElapsed, cardioEnds, cardioIdx, ENDING_RED, isEnding, patchTimers
 import { pipAuto, pipOpen } from '@/lib/pip';
 import { useWakeLock } from '@/lib/wakelock';
 import { askNotifications, notifState } from '@/lib/bgnotify';
+import NoteSheet from '@/components/NoteSheet';
 
 type Seg = { label: string; min: number };
 
@@ -26,6 +27,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const { timers, now } = useTimers(200);
   const [pipOk, setPipOk] = useState(false);
   const [perm, setPerm] = useState<string>('granted');
+  const [note, setNote] = useState(false);
   useEffect(() => { setPipOk(pipSupported()); setPerm(notifState()); }, []);
   useWakeLock(true);
 
@@ -59,14 +61,17 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const next = segments[idx + 1];
 
   return (
-    <div className="t-oscuro" style={{ minHeight: '100dvh', background: '#0e0e0e', color: '#f5f5f5' }}>
+    <div className="t-oscuro noselect" style={{ minHeight: '100dvh', background: '#0e0e0e', color: '#f5f5f5' }}>
       <main className="app" style={{ background: '#0e0e0e', padding: 'calc(20px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom))', gap: 28 }}>
         <header className="row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="label" style={{ color: '#d69ae8' }}>{title}</span>
+            <span className="label" style={{ color: 'var(--acento-claro)' }}>{title}</span>
             <span style={{ fontSize: 14, color: '#a3a3a3' }}>Tramo {idx + 1} de {segments.length}</span>
           </div>
           <span style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => setNote(true)} className="icon-btn" aria-label="Escribir una nota de prueba" style={{ background: '#2a2a2a', color: '#f5f5f5' }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 3h9l3 3v11H4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 9h6M7 12.5h4" stroke="currentColor" strokeWidth="1.8" /></svg>
+            </button>
             {pipOk && !finished && (
               <button type="button" onClick={() => openTimerPip()} className="icon-btn" aria-label="Ver el timer en una ventanita flotante" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><PipIcon /></button>
             )}
@@ -75,7 +80,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
         </header>
 
         <section aria-live="polite" style={{ display: 'flex', flexDirection: 'column', gap: 4, paddingTop: 16 }}>
-          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: '#d69ae8' }}>{finished ? '¡Listo!' : segments[idx].label}</span>
+          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 30, letterSpacing: '0.02em', textTransform: 'uppercase', color: 'var(--acento-claro)' }}>{finished ? '¡Listo!' : segments[idx].label}</span>
           {(() => {
             const t = Math.ceil(left);
             const big: React.CSSProperties = { fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums', color: running && isEnding(left) ? ENDING_RED : undefined, transition: 'color .2s' };
@@ -97,7 +102,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
             const pct = Math.max(0, Math.min(1, (elapsed - segS) / (s.min * 60)));
             return (
               <span key={k} style={{ flex: s.min, display: 'flex', background: '#2a2a2a' }}>
-                <span style={{ width: `${pct * 100}%`, background: k === idx && !finished ? '#d69ae8' : '#c26bd8' }} />
+                <span style={{ width: `${pct * 100}%`, background: k === idx && !finished ? 'var(--acento-claro)' : 'var(--acento)' }} />
               </span>
             );
           })}
@@ -115,13 +120,13 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
             </span>
           </div>
           {finished ? (
-            <Link href={`/sesion/${sessionId}`} className="btn btn-primary" style={{ background: '#c26bd8', color: '#111' }}>Volver a la sesión</Link>
+            <Link href={`/sesion/${sessionId}`} className="btn btn-primary" style={{ background: 'var(--acento)', color: '#111' }}>Volver a la sesión</Link>
           ) : (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40 }}>
               <button type="button" onClick={() => jump(idx === 0 || elapsed - segStart > 3 ? idx : idx - 1)} aria-label="Volver al inicio del tramo" className="icon-btn" style={{ width: 56, height: 56, boxShadow: 'inset 0 0 0 1.5px #3a3a3a', color: '#f5f5f5' }}>
                 <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M16 4L7 10l9 6z" fill="#f5f5f5" /><rect x="4" y="4" width="2.5" height="12" fill="#f5f5f5" /></svg>
               </button>
-              <button type="button" onClick={toggle} aria-label={running ? 'Pausar' : elapsed > 0 ? 'Seguir' : 'Empezar'} style={{ width: 88, height: 88, borderRadius: 999, border: 0, background: '#c26bd8', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <button type="button" onClick={toggle} aria-label={running ? 'Pausar' : elapsed > 0 ? 'Seguir' : 'Empezar'} style={{ width: 88, height: 88, borderRadius: 999, border: 0, background: 'var(--acento)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {running
                   ? <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><rect x="7" y="5" width="5" height="18" fill="#111" /><rect x="16" y="5" width="5" height="18" fill="#111" /></svg>
                   : <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><path d="M8 4l16 10-16 10z" fill="#111" /></svg>}
@@ -134,12 +139,13 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
           {perm === 'default' && !finished && (
             <button type="button" onClick={async () => { await askNotifications(); setPerm(notifState()); }}
               style={{ border: 0, borderRadius: 4, padding: '12px 14px', background: '#251429', color: '#f5f5f5', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="strong" style={{ color: '#d69ae8' }}>🔔 Avisame aunque esté en otra app</span>
+              <span className="strong" style={{ color: 'var(--acento-claro)' }}>🔔 Avisame aunque esté en otra app</span>
             </button>
           )}
           <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
         </section>
       </main>
+      {note && <div className="t-claro" style={{ color: 'var(--guante)' }}><NoteSheet context={`Bici · ${title}`} onClose={() => setNote(false)} /></div>}
     </div>
   );
 }

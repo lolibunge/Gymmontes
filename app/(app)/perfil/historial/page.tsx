@@ -4,18 +4,19 @@ import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { DIAS, dia2, mesCorto, today, weekdayOf } from '@/lib/dates';
-import { routineDays } from '@/lib/data';
+import { DURATION_SQL, durTxt, routineDays } from '@/lib/data';
 import { startPastSession } from '../../sesion/actions';
+import { ENERGY, cycleDay, rpeLabel, type Checkin } from '@/lib/checkin';
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
-type S = { id: number; date: string; title: string | null; subtitle: string | null };
+type S = { id: number; date: string; title: string | null; subtitle: string | null; minutes: number | null };
 type L = { session_id: number; position: number; name: string; kind: string; reps_target: string | null; kg: string | null; reps: number | null; minutes: number | null; raise: boolean };
 
 export default async function Historial({ searchParams }: { searchParams: { ok?: string; error?: string; fecha?: string } }) {
   const u = await requireUser();
   const sessions = await q<S>(
-    `select s.id, to_char(s.date,'YYYY-MM-DD') as date, d.title, d.subtitle from sessions s
+    `select s.id, to_char(s.date,'YYYY-MM-DD') as date, d.title, d.subtitle, ${DURATION_SQL} as minutes from sessions s
        left join routine_days d on d.id = s.day_id
       where s.user_id = $1 and s.finished_at is not null order by s.date desc, s.id desc limit 40`,
     [u.id]
@@ -28,6 +29,12 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
         [sessions.map((s) => s.id)]
       )
     : [];
+  // Registro personal de cada sesión (privado) y días con período, para calcular el día del ciclo
+  const [checks, periods] = sessions.length ? await Promise.all([
+    q<Checkin & { session_id: number }>(`select session_id, energy, sleep, signals, period, note, rpe, after_note from session_checkins where user_id = $1 and session_id = any($2)`, [u.id, sessions.map((s) => s.id)]),
+    q<{ date: string }>(`select distinct to_char(s.date,'YYYY-MM-DD') as date from session_checkins c join sessions s on s.id = c.session_id where c.user_id = $1 and c.period`, [u.id]),
+  ]) : [[], []];
+  const periodDates = periods.map((p) => p.date);
   const open = Number(searchParams.ok) || sessions[0]?.id;
   const days = await routineDays(u.id);
 
@@ -65,6 +72,17 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
           </form>
         </details>
       )}
+      {(() => {
+        const mes = today().slice(0, 7);
+        const delMes = sessions.filter((s) => s.date.startsWith(mes));
+        const min = delMes.reduce((a, s) => a + (s.minutes ?? 0), 0);
+        return delMes.length > 0 && (
+          <section className="row" style={{ padding: '12px 0', borderTop: '1px solid var(--linea)' }} aria-label="Este mes">
+            <span className="caption muted">Este mes</span>
+            <span className="strong">{plural(delMes.length, 'sesión', 'sesiones')}{min > 0 ? ` · ⏱ ${durTxt(min)}` : ''}</span>
+          </section>
+        );
+      })()}
       {sessions.length === 0 && <p className="muted">Todavía no terminaste ninguna sesión. Cuando termines una, aparece acá con todos tus pesos.</p>}
       <div>
         {sessions.map((s) => {
@@ -76,6 +94,8 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
             else byEx.push({ name: l.name, kind: l.kind, kg: l.kg, reps: [l.reps], minutes: l.minutes, raise: l.raise });
           }
           const series = mine.filter((l) => l.kind === 'ejercicio').length;
+          const c = checks.find((x) => x.session_id === s.id);
+          const cd = c && periodDates.length ? cycleDay(periodDates, s.date) : null;
           return (
             <details key={s.id} open={s.id === open} style={{ borderTop: '1px solid var(--linea)' }}>
               <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', gap: 14, padding: '14px 0', cursor: 'pointer' }}>
@@ -85,10 +105,17 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
                 </span>
                 <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   <span className="strong">{s.subtitle ?? s.title ?? 'Sesión'}</span>
-                  <span className="caption muted">{DIAS[weekdayOf(s.date)]} · {plural(byEx.filter((x) => x.kind === 'ejercicio').length, 'ejercicio', 'ejercicios')} · {plural(series, 'serie', 'series')}</span>
+                  <span className="caption muted">{DIAS[weekdayOf(s.date)]} · {plural(byEx.filter((x) => x.kind === 'ejercicio').length, 'ejercicio', 'ejercicios')} · {plural(series, 'serie', 'series')}{s.minutes != null ? ` · ⏱ ${durTxt(s.minutes)}` : ''}</span>
                 </span>
+                {c && (c.energy || c.rpe) && (
+                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }} aria-label={`Energía ${c.energy ?? '—'}, esfuerzo ${c.rpe ?? '—'}`}>
+                    {c.energy && <span style={{ fontSize: 20, lineHeight: 1 }}>{ENERGY[c.energy - 1].face}</span>}
+                    {c.rpe && <span className="caption muted" style={{ fontSize: 11 }}>esfuerzo {c.rpe}</span>}
+                  </span>
+                )}
               </summary>
               <div className="bg-cuerda" style={{ borderRadius: 4, padding: '4px 14px 10px', marginBottom: 14 }}>
+                {c && <CheckinSummary c={c} cycle={cd} />}
                 {byEx.length === 0 && <p className="caption muted" style={{ padding: '9px 0' }}>Sin series registradas.</p>}
                 {byEx.map((x, k) => (
                   <div key={k} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, padding: '9px 0', fontSize: 13 }}>
@@ -107,5 +134,29 @@ export default async function Historial({ searchParams }: { searchParams: { ok?:
         })}
       </div>
     </main>
+  );
+}
+
+/** Cómo llegó y cómo se sintió en esa sesión (solo lo ve la socia). */
+function CheckinSummary({ c, cycle }: { c: Checkin; cycle: number | null }) {
+  const bits = [
+    c.energy ? `${ENERGY[c.energy - 1].face} Energía ${ENERGY[c.energy - 1].label.toLowerCase()}` : null,
+    c.sleep ? `Dormí ${c.sleep}` : null,
+    c.period ? 'Con período' : null,
+    cycle ? `Día ${cycle} del ciclo` : null,
+    c.rpe ? `Esfuerzo ${c.rpe}/10 · ${rpeLabel(c.rpe).toLowerCase()}` : null,
+  ].filter(Boolean) as string[];
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0', borderBottom: '1px solid var(--linea)' }}>
+      <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.1em' }} className="muted">CÓMO LLEGASTE · SOLO LO VES VOS</span>
+      {bits.length > 0 && <span className="caption">{bits.join(' · ')}</span>}
+      {c.signals.length > 0 && (
+        <span style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {c.signals.map((x) => <span key={x} className="badge" style={{ background: 'var(--venda)', color: 'var(--violeta-texto)' }}>{x}</span>)}
+        </span>
+      )}
+      {c.note && <span className="caption" style={{ fontStyle: 'italic' }}>Antes: “{c.note}”</span>}
+      {c.after_note && <span className="caption" style={{ fontStyle: 'italic' }}>Después: “{c.after_note}”</span>}
+    </div>
   );
 }

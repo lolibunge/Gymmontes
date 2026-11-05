@@ -44,7 +44,7 @@ export default function Scanner({ machines }: { machines: { code: string; name: 
             {status === 'unsupported' && 'En este teléfono escaneá el QR con la cámara del celular: abre la ficha directamente. También podés elegir la máquina de la lista.'}
           </p>
         )}
-        {status === 'on' && <span aria-hidden="true" style={{ position: 'absolute', inset: '18%', boxShadow: 'inset 0 0 0 3px #c26bd8', borderRadius: 4 }} />}
+        {status === 'on' && <span aria-hidden="true" style={{ position: 'absolute', inset: '18%', boxShadow: 'inset 0 0 0 3px var(--acento)', borderRadius: 4 }} />}
       </div>
       <section>
         <h2 className="label" style={{ paddingBottom: 8 }}>O elegí la máquina</h2>

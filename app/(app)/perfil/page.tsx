@@ -3,7 +3,7 @@ import { requireUser } from '@/lib/auth';
 import { membership, stats } from '@/lib/data';
 import { corta, mesLargo } from '@/lib/dates';
 import { Chevron } from '@/components/Icons';
-import { declarePayment, setTheme } from './actions';
+import { declarePayment, setAccent, setTheme } from './actions';
 import { today } from '@/lib/dates';
 import { logout } from '@/app/login/actions';
 import { betaOn } from '@/lib/notes';
@@ -74,7 +74,7 @@ export default async function Perfil() {
       <section aria-label="Tus números" style={{ display: 'flex', gap: 12, padding: '14px 0', borderTop: '1px solid var(--linea)', borderBottom: '1px solid var(--linea)' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.total}</span><span className="caption muted">sesiones</span></div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number brand" style={{ fontSize: 26 }}>{st.streak} sem.</span><span className="caption muted">en racha</span></div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.toRaise}</span><span className="caption muted">para subir peso</span></div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.monthMinutes >= 60 ? `${Math.floor(st.monthMinutes / 60)} h ${st.monthMinutes % 60}′` : `${st.monthMinutes}′`}</span><span className="caption muted">entrenadas este mes</span></div>
       </section>
 
       <nav aria-label="Tu cuenta">
@@ -98,6 +98,23 @@ export default async function Perfil() {
             );
           })}
         </div>
+      </form>
+
+      <form action={setAccent} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <span className="label">Tu color</span>
+        <div role="group" aria-label="Color de la app" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {([['violeta', '#9a3cb4'], ['azul', '#2563eb'], ['turquesa', '#0d9488'], ['verde', '#15803d'], ['naranja', '#ea580c'], ['rosa', '#db2777'], ['rojo', '#dc2626']] as const).map(([k, c]) => {
+            const on = user.accent === k;
+            return (
+              <button key={k} name="accent" value={k} aria-pressed={on} aria-label={k} title={k}
+                style={{ width: 40, height: 40, borderRadius: 999, border: 0, cursor: 'pointer', background: c,
+                  boxShadow: on ? '0 0 0 3px var(--lona), 0 0 0 5px var(--guante)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900 }}>
+                {on ? '✓' : ''}
+              </button>
+            );
+          })}
+        </div>
+        <span className="caption muted">Cambia el color de los botones, las marcas y los timers. El fondo sigue según Apariencia.</span>
       </form>
 
       <form action={logout} style={{ paddingTop: 8 }}>

@@ -137,7 +137,7 @@ async function Sorteo({ hoy }: { hoy: string }) {
     <>
       {r && (
         <section className="card bg-esquina" style={{ padding: 18 }}>
-          <span className="label" style={{ color: '#d69ae8' }}>{r.winner ? 'Sorteo terminado' : abierto ? 'Sorteo activo' : 'Sorteo cerrado'}</span>
+          <span className="label" style={{ color: 'var(--acento-claro)' }}>{r.winner ? 'Sorteo terminado' : abierto ? 'Sorteo activo' : 'Sorteo cerrado'}</span>
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{r.title}</span>
           <span className="caption" style={{ color: '#bdbdbd' }}>{r.winner ? `Ganó ${r.winner}` : `${abierto ? 'Cierra' : 'Cerró'} el ${corta(r.closes_on)}`} · {entries.length} {entries.length === 1 ? 'anotado' : 'anotados'}</span>
           {!r.winner && entries.length > 0 && (

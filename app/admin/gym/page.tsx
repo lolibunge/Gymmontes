@@ -100,14 +100,14 @@ async function Frases() {
   );
   return (
     <>
-      <p className="caption muted">Se muestran en el Inicio de los socios, en un banner que pasa solo de una frase a otra (cada 6 segundos). Podés pausar las que no quieras mostrar por ahora.</p>
+      <p className="caption muted">Se muestran arriba de todas las pantallas de los socios, en una cinta que pasa sola de derecha a izquierda. Podés pausar las que no quieras mostrar por ahora.</p>
       <form action={savePhrase} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 10 }}>
         <span className="label">Nueva frase</span>
         {fields()}
         <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>Agregar</button>
       </form>
       <section>
-        <h2 className="label" style={{ paddingBottom: 6 }}>En el banner · {items.filter((p) => p.active).length} activas</h2>
+        <h2 className="label" style={{ paddingBottom: 6 }}>En la cinta · {items.filter((p) => p.active).length} activas</h2>
         {items.length === 0 && <p className="caption muted">Todavía no hay frases.</p>}
         {items.map((p, k) => (
           <details key={p.id} className="list-row" style={{ display: 'block', opacity: p.active ? 1 : 0.55 }}>

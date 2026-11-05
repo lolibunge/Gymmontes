@@ -1,8 +1,7 @@
 import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
-import PhraseBanner from '@/components/PhraseBanner';
-import { requireUser } from '@/lib/auth';
-import { phrases, openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
+import { callName, requireUser } from '@/lib/auth';
+import { openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
 import { DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
 import { Arrow, Check, Clock } from '@/components/Icons';
 import { startSession } from './sesion/actions';
@@ -15,7 +14,8 @@ export default async function Inicio() {
     todaysPlan(user.id), weekDone(user.id), membership(user.id), challenge(), monthCount(user.id), news(2),
   ]);
   const plan = hoy ?? proximo;
-  const [abierta, frases] = await Promise.all([openSessionToday(user.id), phrases()]);
+  // Solo cuenta como "sin terminar" si tiene alguna serie hecha (una vacía no se ofrece para seguir)
+  const abierta = await openSessionToday(user.id).then((a) => (a && a.done > 0 ? a : null));
   const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
   const pendientes = user.role === 'duena' ? await pendingCount() : 0;
   const ejercicios = plan?.items.filter((i) => i.kind === 'ejercicio') ?? [];
@@ -71,13 +71,16 @@ export default async function Inicio() {
       {esMiCumple && (
         <section className="card bg-violeta" style={{ gap: 4, padding: '16px 18px' }}>
           <span style={{ fontSize: 28, lineHeight: 1 }} aria-hidden="true">🎂🎉</span>
-          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>¡Feliz cumpleaños, {user.name.split(' ')[0]}!</span>
+          <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>¡Feliz cumpleaños, {callName(user)}!</span>
           <span className="caption">Todo GYM MONTES te desea un gran día. Que este año venga con muchos PR 💪</span>
         </section>
       )}
 
       <section style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <p className="muted">Hola {user.name}, {!plan ? 'te damos la bienvenida a GYM MONTES' : hoy ? (yaHoy ? 'ya entrenaste hoy' : 'hoy te toca') : 'hoy descansás. Lo próximo es'}</p>
+        <p style={{ fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 30, lineHeight: '34px', letterSpacing: '-0.01em' }}>
+          Hola, <span className="brand">{callName(user)}</span> 👋
+        </p>
+        <p className="muted" style={{ fontSize: 16 }}>{!plan ? 'Te damos la bienvenida a GYM MONTES' : hoy ? (yaHoy ? 'Ya entrenaste hoy. ¡Bien ahí!' : 'Hoy te toca') : 'Hoy descansás. Lo próximo es'}</p>
         <h1 className="display" style={!plan ? { fontSize: 44, lineHeight: '42px' } : undefined}>{plan ? DIAS[plan.weekday] : 'Empecemos'}</h1>
         {plan?.subtitle && <p className="label brand" style={{ fontSize: 13, letterSpacing: '0.1em' }}>{plan.subtitle}</p>}
       </section>
@@ -146,8 +149,6 @@ export default async function Inicio() {
           </div>
         </section>
       )}
-
-      <PhraseBanner items={frases} />
 
       {reto && (
         <Link href="/comunidad" className="card bg-venda" style={{ color: 'var(--guante)' }}>

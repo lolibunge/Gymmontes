@@ -35,6 +35,7 @@ alter table users add column if not exists auth_provider text not null default '
 alter table users add column if not exists show_birthday boolean not null default true;
 alter table users add column if not exists accent text not null default 'violeta';
 alter table users add column if not exists hormonal text not null default 'ninguno';
+alter table users add column if not exists nickname text;
 create table if not exists session_checkins (
   session_id int primary key references sessions(id) on delete cascade,
   user_id int not null references users(id) on delete cascade,

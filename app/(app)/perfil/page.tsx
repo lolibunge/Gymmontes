@@ -36,7 +36,7 @@ export default async function Perfil() {
           {user.name.slice(0, 1).toUpperCase()}
         </span>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <h1 className="title" style={{ fontSize: 32, lineHeight: '32px' }}>{user.name}</h1>
+          <h1 className="title" style={{ fontSize: 32, lineHeight: '32px' }}>{user.nickname?.trim() || user.name}</h1>
           <span className="muted" style={{ fontSize: 14 }}>{user.role === 'duena' ? 'Dueña' : 'Socia'} desde {mesLargo(since)} {since.slice(0, 4)}</span>
         </div>
       </header>
@@ -120,7 +120,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
-      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.15 beta · Desarrollado por Loli Bunge</p>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.16 beta · Desarrollado por Loli Bunge</p>
     </main>
   );
 }

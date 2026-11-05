@@ -188,6 +188,15 @@ create table if not exists phrases (
   position int not null default 0,
   created_at timestamptz not null default now()
 );
+create table if not exists body_measurements (
+  id serial primary key,
+  user_id int not null references users(id) on delete cascade,
+  date date not null,
+  weight numeric, fat_pct numeric, waist numeric, hip numeric, chest numeric, arm numeric, thigh numeric, calf numeric,
+  note text,
+  created_at timestamptz not null default now(),
+  unique (user_id, date)
+);
 create table if not exists notes (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,

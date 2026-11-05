@@ -1,7 +1,8 @@
 import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
+import PhraseBanner from '@/components/PhraseBanner';
 import { requireUser } from '@/lib/auth';
-import { openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
+import { phrases, openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
 import { DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
 import { Arrow, Check, Clock } from '@/components/Icons';
 import { startSession } from './sesion/actions';
@@ -14,7 +15,7 @@ export default async function Inicio() {
     todaysPlan(user.id), weekDone(user.id), membership(user.id), challenge(), monthCount(user.id), news(2),
   ]);
   const plan = hoy ?? proximo;
-  const abierta = await openSessionToday(user.id);
+  const [abierta, frases] = await Promise.all([openSessionToday(user.id), phrases()]);
   const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
   const pendientes = user.role === 'duena' ? await pendingCount() : 0;
   const ejercicios = plan?.items.filter((i) => i.kind === 'ejercicio') ?? [];
@@ -145,6 +146,8 @@ export default async function Inicio() {
           </div>
         </section>
       )}
+
+      <PhraseBanner items={frases} />
 
       {reto && (
         <Link href="/comunidad" className="card bg-venda" style={{ color: 'var(--guante)' }}>

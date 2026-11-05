@@ -193,3 +193,4 @@ body.has-dock .page, body.has-dock .app > section:first-child { padding-top: 12p
 /* v1.13 — En la app del socio no se selecciona texto al tocar (los campos sí) */
 .noselect, .noselect * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 .noselect input, .noselect textarea, .noselect select { -webkit-user-select: text; user-select: text; }
+@keyframes gm-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }

@@ -134,8 +134,48 @@ export async function addNews(form: FormData) {
   const title = txt(form.get('title'));
   if (!title) return;
   const date = /^\d{4}-\d{2}-\d{2}$/.test(txt(form.get('date'))) ? txt(form.get('date')) : null;
-  await q('insert into news (date, title, body) values (coalesce($1::date, current_date), $2, $3)', [date, title, txt(form.get('body')) || null]);
+  const until = /^\d{4}-\d{2}-\d{2}$/.test(txt(form.get('until'))) ? txt(form.get('until')) : null;
+  await q('insert into news (date, title, body, until) values (coalesce($1::date, current_date), $2, $3, $4::date)', [date, title, txt(form.get('body')) || null, until]);
   revalidatePath('/', 'layout');
+}
+
+export async function editNews(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  const title = txt(form.get('title'));
+  if (!id || !title) return;
+  const d = (k: string) => (/^\d{4}-\d{2}-\d{2}$/.test(txt(form.get(k))) ? txt(form.get(k)) : null);
+  await q('update news set title = $2, body = $3, date = coalesce($4::date, date), until = $5::date where id = $1', [id, title, txt(form.get('body')) || null, d('date'), d('until')]);
+  revalidatePath('/', 'layout');
+  redirect('/admin/gym?tab=novedades');
+}
+
+// ---------- Frases del banner ----------
+export async function savePhrase(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id')) || 0;
+  const text = txt(form.get('text')).slice(0, 220);
+  const author = txt(form.get('author')).slice(0, 80) || null;
+  if (!text) return;
+  if (id) await q('update phrases set text = $2, author = $3 where id = $1', [id, text, author]);
+  else await q('insert into phrases (text, author, position) values ($1, $2, coalesce((select max(position) + 1 from phrases), 0))', [text, author]);
+  revalidatePath('/', 'layout');
+  redirect('/admin/gym?tab=frases');
+}
+export async function phraseAction(form: FormData) {
+  await requireOwner();
+  const id = Number(form.get('id'));
+  const op = String(form.get('op'));
+  if (op === 'borrar') await q('delete from phrases where id = $1', [id]);
+  if (op === 'pausar') await q('update phrases set active = not active where id = $1', [id]);
+  if (op === 'subir' || op === 'bajar') {
+    const rows = await q<{ id: number }>('select id from phrases order by position, id');
+    const k = rows.findIndex((r) => r.id === id);
+    const j = op === 'subir' ? k - 1 : k + 1;
+    if (k >= 0 && j >= 0 && j < rows.length) { [rows[k], rows[j]] = [rows[j], rows[k]]; for (let n = 0; n < rows.length; n++) await q('update phrases set position = $2 where id = $1', [rows[n].id, n]); }
+  }
+  revalidatePath('/', 'layout');
+  redirect('/admin/gym?tab=frases');
 }
 
 export async function deleteNews(form: FormData) {

@@ -129,8 +129,10 @@ export async function raffle(userId: number) {
 export async function news(limit = 5) {
   const [rows, cumple] = await Promise.all([
     q<{ id: number; date: string; title: string; body: string | null }>(
-      `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news order by date desc limit $1`,
-      [limit]
+      // Las que tienen "Mostrar hasta" dejan de verse al día siguiente de esa fecha
+      `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news
+        where until is null or until >= $2::date order by date desc limit $1`,
+      [limit, today()]
     ),
     birthdaysToday(),
   ]);
@@ -238,4 +240,9 @@ export async function openSessionToday(userId: number) {
       order by s.id desc limit 1`,
     [userId, today()]
   );
+}
+
+/** Frases del banner del Inicio (las activas, en el orden que eligió la dueña). */
+export async function phrases() {
+  return q<{ id: number; text: string; author: string | null }>('select id, text, author from phrases where active order by position, id');
 }

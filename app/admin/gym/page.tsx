@@ -2,13 +2,13 @@ import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { one, q } from '@/lib/db';
 import { addDays, corta, mesLargo, today } from '@/lib/dates';
-import { addNews, createRaffle, deleteNews, drawWinner, saveChallenge, saveCobros, saveWarmup } from '../actions';
+import { addNews, createRaffle, deleteNews, drawWinner, editNews, phraseAction, saveChallenge, saveCobros, savePhrase, saveWarmup } from '../actions';
 import { warmupSettings } from '@/lib/warmup';
 import { METHOD_LABEL, paySettings, pendingPayments } from '@/lib/payments';
 import PaymentCard from '../PaymentCard';
 
-const TABS = ['cobros', 'maquinas', 'calentamiento', 'novedades', 'reto', 'sorteo'] as const;
-const LABEL: Record<string, string> = { cobros: 'Cobros', maquinas: 'Máquinas', calentamiento: 'Calentamiento', novedades: 'Novedades', reto: 'Reto', sorteo: 'Sorteo' };
+const TABS = ['cobros', 'maquinas', 'calentamiento', 'novedades', 'frases', 'reto', 'sorteo'] as const;
+const LABEL: Record<string, string> = { cobros: 'Cobros', maquinas: 'Máquinas', calentamiento: 'Calentamiento', novedades: 'Novedades', frases: 'Frases', reto: 'Reto', sorteo: 'Sorteo' };
 
 export default async function Gym({ searchParams }: { searchParams: { tab?: string; guardado?: string; error?: string } }) {
   await requireOwner();
@@ -31,6 +31,7 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
       {tab === 'maquinas' && <Maquinas />}
       {tab === 'calentamiento' && <Calentamiento guardado={!!searchParams.guardado} />}
       {tab === 'novedades' && <Novedades />}
+      {tab === 'frases' && <Frases />}
       {tab === 'reto' && <Reto mes={mes} next={next} />}
       {tab === 'sorteo' && <Sorteo hoy={t} />}
     </main>
@@ -38,28 +39,97 @@ export default async function Gym({ searchParams }: { searchParams: { tab?: stri
 }
 
 async function Novedades() {
-  const items = await q<{ id: number; date: string; title: string; body: string | null }>(
-    `select id, to_char(date,'YYYY-MM-DD') as date, title, body from news order by date desc, id desc limit 30`);
+  const items = await q<{ id: number; date: string; title: string; body: string | null; until: string | null }>(
+    `select id, to_char(date,'YYYY-MM-DD') as date, title, body, to_char(until,'YYYY-MM-DD') as until from news order by date desc, id desc limit 30`);
+  const hoy = today();
   return (
     <>
       <form action={addNews} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 10 }}>
         <span className="label">Nueva novedad</span>
         <label><span className="sr">Título</span><input className="input" name="title" required placeholder="Ej.: Feriado 2/11: abrimos de 9 a 13 h" /></label>
         <label><span className="sr">Detalle</span><textarea className="input" name="body" rows={2} placeholder="Detalle (opcional)" /></label>
-        <label className="field"><span>Fecha que se muestra</span><input className="input" type="date" name="date" defaultValue={today()} /></label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+          <label className="field"><span>Fecha que se muestra</span><input className="input" type="date" name="date" defaultValue={hoy} /></label>
+          <label className="field"><span>Mostrar hasta</span><input className="input" type="date" name="until" min={hoy} /></label>
+        </div>
+        <span className="caption muted">“Mostrar hasta” es opcional: después de ese día deja de verse sola. Vacío = queda siempre.</span>
         <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>Publicar</button>
       </form>
       <section>
         <h2 className="label" style={{ paddingBottom: 6 }}>Publicadas · las ven todos los socios</h2>
         {items.length === 0 && <p className="caption muted">Todavía no hay novedades.</p>}
-        {items.map((n) => (
-          <div key={n.id} className="list-row">
-            <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <span className="strong">{n.title}</span>
-              <span className="caption muted">{corta(n.date)}{n.body ? ` · ${n.body}` : ''}</span>
-            </span>
-            <form action={deleteNews}><input type="hidden" name="id" value={n.id} /><button className="link" style={{ color: 'var(--campana)', fontSize: 13 }}>Borrar</button></form>
-          </div>
+        {items.map((n) => {
+          const vencida = !!n.until && n.until < hoy;
+          return (
+            <details key={n.id} className="list-row" style={{ display: 'block', opacity: vencida ? 0.6 : 1 }}>
+              <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span className="strong">{n.title}</span>
+                  <span className="caption muted">{corta(n.date)}{n.body ? ` · ${n.body}` : ''}</span>
+                  <span className="caption" style={{ color: vencida ? 'var(--alerta)' : 'var(--violeta-texto)' }}>{n.until ? (vencida ? `Ya no se ve (hasta el ${corta(n.until)})` : `Se ve hasta el ${corta(n.until)}`) : 'Se ve siempre'}</span>
+                </span>
+                <span className="link" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>Editar</span>
+              </summary>
+              <form action={editNews} style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 10 }}>
+                <input type="hidden" name="id" value={n.id} />
+                <label className="field"><span>Título</span><input className="input" name="title" required defaultValue={n.title} /></label>
+                <label className="field"><span>Detalle</span><textarea className="input" name="body" rows={2} defaultValue={n.body ?? ''} /></label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <label className="field"><span>Fecha</span><input className="input" type="date" name="date" defaultValue={n.date} /></label>
+                  <label className="field"><span>Mostrar hasta</span><input className="input" type="date" name="until" defaultValue={n.until ?? ''} /></label>
+                </div>
+                <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14, minHeight: 44 }}>Guardar cambios</button>
+              </form>
+              <form action={deleteNews} style={{ paddingTop: 8, textAlign: 'center' }}><input type="hidden" name="id" value={n.id} /><button className="link" style={{ color: 'var(--alerta)', fontSize: 13 }}>Borrar esta novedad</button></form>
+            </details>
+          );
+        })}
+      </section>
+    </>
+  );
+}
+
+async function Frases() {
+  const items = await q<{ id: number; text: string; author: string | null; active: boolean }>('select id, text, author, active from phrases order by position, id');
+  const fields = (p?: { id: number; text: string; author: string | null }) => (
+    <>
+      {p && <input type="hidden" name="id" value={p.id} />}
+      <label><span className="sr">Frase</span><textarea className="input" name="text" rows={2} required maxLength={220} defaultValue={p?.text ?? ''} placeholder="Ej.: Venir ya es la mitad del entrenamiento." /></label>
+      <label><span className="sr">Autor</span><input className="input" name="author" maxLength={80} defaultValue={p?.author ?? ''} placeholder="Autor (opcional)" /></label>
+    </>
+  );
+  return (
+    <>
+      <p className="caption muted">Se muestran en el Inicio de los socios, en un banner que pasa solo de una frase a otra (cada 6 segundos). Podés pausar las que no quieras mostrar por ahora.</p>
+      <form action={savePhrase} className="card" style={{ boxShadow: 'inset 0 0 0 1.5px var(--linea)', gap: 10 }}>
+        <span className="label">Nueva frase</span>
+        {fields()}
+        <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14 }}>Agregar</button>
+      </form>
+      <section>
+        <h2 className="label" style={{ paddingBottom: 6 }}>En el banner · {items.filter((p) => p.active).length} activas</h2>
+        {items.length === 0 && <p className="caption muted">Todavía no hay frases.</p>}
+        {items.map((p, k) => (
+          <details key={p.id} className="list-row" style={{ display: 'block', opacity: p.active ? 1 : 0.55 }}>
+            <summary style={{ listStyle: 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, cursor: 'pointer' }}>
+              <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <span>“{p.text}”</span>
+                <span className="caption muted">{p.author ? `— ${p.author} · ` : ''}{p.active ? 'Activa' : 'En pausa'}</span>
+              </span>
+              <span className="link" style={{ fontSize: 13, whiteSpace: 'nowrap' }}>Editar</span>
+            </summary>
+            <form action={savePhrase} style={{ display: 'flex', flexDirection: 'column', gap: 8, paddingTop: 10 }}>
+              {fields(p)}
+              <button className="btn btn-primary" style={{ justifyContent: 'center', fontSize: 14, minHeight: 44 }}>Guardar cambios</button>
+            </form>
+            <form action={phraseAction} style={{ display: 'flex', gap: 6, paddingTop: 8 }}>
+              <input type="hidden" name="id" value={p.id} />
+              <button name="op" value="subir" className="chip" disabled={k === 0} aria-label="Subir">↑</button>
+              <button name="op" value="bajar" className="chip" disabled={k === items.length - 1} aria-label="Bajar">↓</button>
+              <button name="op" value="pausar" className="chip" style={{ flex: 1 }}>{p.active ? 'Pausar' : 'Activar'}</button>
+              <button name="op" value="borrar" className="chip" style={{ color: 'var(--alerta)' }}>Borrar</button>
+            </form>
+          </details>
         ))}
       </section>
     </>

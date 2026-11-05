@@ -5,10 +5,11 @@ import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { today } from '@/lib/dates';
 
-const KEYS = ['weight', 'fat_pct', 'waist', 'hip', 'chest', 'arm', 'thigh', 'calf'] as const;
+const KEYS = ['weight', 'fat_pct', 'waist', 'hip', 'chest', 'arm_l', 'arm_r', 'thigh_l', 'thigh_r', 'calf_l', 'calf_r'] as const;
 // Rangos razonables para no guardar un error de tipeo (ej. 700 en vez de 70)
 const RANGE: Record<(typeof KEYS)[number], [number, number]> = {
-  weight: [25, 300], fat_pct: [3, 70], waist: [40, 200], hip: [50, 220], chest: [50, 200], arm: [15, 70], thigh: [25, 110], calf: [20, 70],
+  weight: [25, 300], fat_pct: [3, 70], waist: [40, 200], hip: [50, 220], chest: [50, 200],
+  arm_l: [15, 70], arm_r: [15, 70], thigh_l: [25, 110], thigh_r: [25, 110], calf_l: [20, 70], calf_r: [20, 70],
 };
 
 export async function saveMeasure(form: FormData) {
@@ -26,7 +27,7 @@ export async function saveMeasure(form: FormData) {
   if (vals.every((v) => v == null)) redirect(`/perfil/medidas?error=vacio&fecha=${date}`);
   const note = String(form.get('note') ?? '').trim().slice(0, 300) || null;
   await q(
-    `insert into body_measurements (user_id, date, ${KEYS.join(', ')}, note) values ($1, $2, ${KEYS.map((_, i) => `$${i + 3}`).join(', ')}, $11)
+    `insert into body_measurements (user_id, date, ${KEYS.join(', ')}, note) values ($1, $2, ${KEYS.map((_, i) => `$${i + 3}`).join(', ')}, $${KEYS.length + 3})
      on conflict (user_id, date) do update set ${KEYS.map((k) => `${k} = excluded.${k}`).join(', ')}, note = excluded.note`,
     [u.id, date, ...vals, note]
   );

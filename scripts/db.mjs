@@ -197,6 +197,12 @@ create table if not exists body_measurements (
   created_at timestamptz not null default now(),
   unique (user_id, date)
 );
+alter table body_measurements add column if not exists arm_l numeric;
+alter table body_measurements add column if not exists arm_r numeric;
+alter table body_measurements add column if not exists thigh_l numeric;
+alter table body_measurements add column if not exists thigh_r numeric;
+alter table body_measurements add column if not exists calf_l numeric;
+alter table body_measurements add column if not exists calf_r numeric;
 create table if not exists notes (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,

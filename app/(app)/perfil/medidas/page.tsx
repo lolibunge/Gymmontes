@@ -3,7 +3,7 @@ import BackBar from '@/components/BackBar';
 import { requireUser } from '@/lib/auth';
 import { q } from '@/lib/db';
 import { corta, today } from '@/lib/dates';
-import { METRICS, fmt, type Measure, type MetricKey } from '@/lib/measures';
+import { FORM_KEYS, METRICS, PAIRS, SINGLES, fmt, meta, type Measure, type MetricKey } from '@/lib/measures';
 import { deleteMeasure, saveMeasure } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -24,6 +24,7 @@ export default async function Medidas({ searchParams }: { searchParams: { ok?: s
   const editing = rows.find((r) => r.date === fecha);
   const last = rows[rows.length - 1];
   const used = METRICS.filter((m) => rows.some((r) => r[m.k] != null));
+  const has = (k: MetricKey) => rows.some((r) => r[k] != null);
   const err = searchParams.error && (ERR[searchParams.error] ?? `Revisá “${METRICS.find((m) => m.k === searchParams.error)?.label ?? 'la medida'}”: el número no parece correcto.`);
   const dias = last ? Math.round((new Date(today()).getTime() - new Date(last.date).getTime()) / 86400000) : null;
 
@@ -42,18 +43,23 @@ export default async function Medidas({ searchParams }: { searchParams: { ok?: s
         </div>
         {err && <p role="alert" className="caption strong" style={{ color: 'var(--alerta)' }}>{err}</p>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          {METRICS.map((m) => (
-            <label key={m.k} className="field">
-              <span>{m.label} ({m.unit})</span>
-              <input className="input" name={m.k} inputMode="decimal" key={`${fecha}-${m.k}`}
-                defaultValue={editing?.[m.k] != null ? fmt(editing[m.k]!) : ''} placeholder={last?.[m.k] != null ? fmt(last[m.k]!) : '—'} />
-            </label>
-          ))}
+          {FORM_KEYS.map((k) => {
+            const m = meta(k);
+            return (
+              // Pecho ocupa la fila entera, así izquierda y derecha de cada par quedan una al lado de la otra
+              <label key={k} className="field" style={k === 'chest' ? { gridColumn: '1 / -1' } : undefined}>
+                <span>{m.label} ({m.unit})</span>
+                <input className="input" name={k} inputMode="decimal" key={`${fecha}-${k}`}
+                  defaultValue={editing?.[k] != null ? fmt(editing[k]!) : ''} placeholder={last?.[k] != null ? fmt(last[k]!) : '—'} />
+              </label>
+            );
+          })}
         </div>
         <details>
           <summary className="link" style={{ fontSize: 13, cursor: 'pointer' }}>¿Cómo medir cada una?</summary>
           <ul className="caption muted" style={{ margin: '8px 0 0', paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
-            {METRICS.map((m) => <li key={m.k}><b>{m.label}:</b> {m.hint}.</li>)}
+            {METRICS.filter((m) => m.hint).map((m) => <li key={m.k}><b>{m.label}:</b> {m.hint}.</li>)}
+            {PAIRS.map((p) => <li key={p.label}><b>{p.label}:</b> {p.hint}.</li>)}
             <li>Con la cinta apoyada, sin apretar la piel, y sin ropa gruesa.</li>
           </ul>
         </details>
@@ -65,7 +71,9 @@ export default async function Medidas({ searchParams }: { searchParams: { ok?: s
       {used.length > 0 && (
         <section style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           <h2 className="label">Tu progreso</h2>
-          {used.map((m) => <Progress key={m.k} label={m.label} unit={m.unit} pts={rows.filter((r) => r[m.k] != null).map((r) => ({ date: r.date, v: r[m.k] as number }))} />)}
+          {SINGLES.filter(has).slice(0, 5).map((k) => <Progress key={k} label={meta(k).label} unit={meta(k).unit} pts={series(rows, k)} />)}
+          {PAIRS.filter((p) => has(p.l) || has(p.r)).map((p) => <PairProgress key={p.label} label={p.label} l={series(rows, p.l)} r={series(rows, p.r)} />)}
+          {SINGLES.filter(has).slice(5).map((k) => <Progress key={k} label={meta(k).label} unit={meta(k).unit} pts={series(rows, k)} />)}
         </section>
       )}
 
@@ -151,6 +159,81 @@ function Spark({ pts, unit, label }: { pts: { date: string; v: number }[]; unit:
         })}
       </svg>
       <figcaption className="row caption muted" style={{ fontSize: 11 }}><span>{corta(pts[0].date)}</span><span>{corta(pts[pts.length - 1].date)}</span></figcaption>
+    </figure>
+  );
+}
+
+const series = (rows: Measure[], k: MetricKey) => rows.filter((r) => r[k] != null).map((r) => ({ date: r.date, v: r[k] as number }));
+
+/**
+ * Brazo / muslo / pantorrilla: izquierda y derecha juntas, con la diferencia entre lados (simetría).
+ * En el gráfico, izquierda = línea llena y derecha = línea punteada, con etiqueta en cada una.
+ */
+function PairProgress({ label, l, r }: { label: string; l: { date: string; v: number }[]; r: { date: string; v: number }[] }) {
+  const L = l[l.length - 1], R = r[r.length - 1];
+  const diff = L && R && L.date === R.date ? Math.round((L.v - R.v) * 10) / 10 : null;
+  const ch = (pts: { v: number }[]) => (pts.length >= 2 ? Math.round((pts[pts.length - 1].v - pts[0].v) * 10) / 10 : null);
+  const sign = (d: number | null) => (d == null ? '' : d === 0 ? ' (= igual)' : ` (${d < 0 ? '▼' : '▲'} ${fmt(Math.abs(d))} cm desde el comienzo)`);
+  const all = [...l, ...r];
+  return (
+    <div className="card bg-cuerda" style={{ gap: 6, padding: '14px 16px' }}>
+      <span className="strong">{label}</span>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        {([['Izquierdo', L, ch(l), false], ['Derecho', R, ch(r), true]] as const).map(([side, p, d, dashed]) => (
+          <span key={side} style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            <span className="caption muted" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <svg width="18" height="6" aria-hidden="true"><line x1="0" x2="18" y1="3" y2="3" stroke="var(--violeta)" strokeWidth="2" strokeDasharray={dashed ? '4 3' : undefined} /></svg>{side}
+            </span>
+            <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 20 }}>{p ? fmt(p.v) : '—'} <span className="caption muted" style={{ fontFamily: 'var(--font-inter)', fontWeight: 500 }}>cm</span></span>
+            <span className="caption muted" style={{ fontSize: 11 }}>{sign(d).replace(/^ \(|\)$/g, '')}</span>
+          </span>
+        ))}
+      </div>
+      {diff != null && (
+        <span className="caption">
+          {diff === 0 ? 'Los dos lados están iguales 👌' : <>Diferencia entre lados: <b>{fmt(Math.abs(diff))} cm</b> <span className="muted">(el {diff > 0 ? 'izquierdo' : 'derecho'} es más grande)</span></>}
+        </span>
+      )}
+      {all.length >= 3 && new Set(all.map((p) => p.date)).size >= 2
+        ? <Spark2 l={l} r={r} label={label} />
+        : <span className="caption muted">Con la próxima medición vas a ver la línea de cada lado.</span>}
+    </div>
+  );
+}
+
+function Spark2({ l, r, label }: { l: { date: string; v: number }[]; r: { date: string; v: number }[]; label: string }) {
+  const W = 300, H = 72, P = 8, RIGHT = 34; // margen derecho para la etiqueta de cada línea
+  const t = (d: string) => new Date(d + 'T12:00:00Z').getTime();
+  const all = [...l, ...r];
+  const dates = all.map((p) => t(p.date));
+  const t0 = Math.min(...dates), t1 = Math.max(...dates);
+  let lo = Math.min(...all.map((p) => p.v)), hi = Math.max(...all.map((p) => p.v));
+  if (hi - lo < 1) { lo -= 0.5; hi += 0.5; }
+  const x = (d: string) => P + ((t(d) - t0) / Math.max(1, t1 - t0)) * (W - P - RIGHT);
+  const y = (v: number) => P + (1 - (v - lo) / (hi - lo)) * (H - 2 * P);
+  // Etiquetas al final de cada línea, separadas si quedan muy cerca
+  const ly = l.length ? y(l[l.length - 1].v) : 0, ry = r.length ? y(r[r.length - 1].v) : 0;
+  const gap = 12 - Math.abs(ly - ry);
+  const labelY = { Izquierdo: gap > 0 ? ly + (ly <= ry ? -gap / 2 : gap / 2) : ly, Derecho: gap > 0 ? ry + (ry < ly ? -gap / 2 : gap / 2) : ry };
+  const line = (pts: { date: string; v: number }[], dashed: boolean, name: 'Izquierdo' | 'Derecho') => pts.length > 0 && (
+    <g>
+      <path d={pts.map((p, k) => `${k ? 'L' : 'M'}${x(p.date).toFixed(1)},${y(p.v).toFixed(1)}`).join(' ')} fill="none" stroke="var(--violeta)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" strokeDasharray={dashed ? '5 4' : undefined} />
+      {pts.map((p, k) => (
+        <g key={p.date}>
+          <circle cx={x(p.date)} cy={y(p.v)} r={k === pts.length - 1 ? 4.5 : 3} fill={dashed ? 'var(--cuerda)' : 'var(--violeta)'} stroke="var(--violeta)" strokeWidth="2" />
+          <circle cx={x(p.date)} cy={y(p.v)} r="11" fill="transparent"><title>{`${name} · ${corta(p.date)}: ${fmt(p.v)} cm`}</title></circle>
+        </g>
+      ))}
+      <text x={x(pts[pts.length - 1].date) + 8} y={labelY[name] + 4} fontSize="11" fill="var(--campana)">{name === 'Izquierdo' ? 'Izq' : 'Der'}</text>
+    </g>
+  );
+  return (
+    <figure style={{ margin: 0 }}>
+      <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} role="img" aria-label={`${label}: izquierdo y derecho a lo largo del tiempo`}>
+        {line(l, false, 'Izquierdo')}
+        {line(r, true, 'Derecho')}
+      </svg>
+      <figcaption className="row caption muted" style={{ fontSize: 11, paddingRight: RIGHT / 3 }}><span>{corta(new Date(t0).toISOString().slice(0, 10))}</span><span>{corta(new Date(t1).toISOString().slice(0, 10))}</span></figcaption>
     </figure>
   );
 }

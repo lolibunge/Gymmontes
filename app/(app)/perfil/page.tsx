@@ -74,7 +74,7 @@ export default async function Perfil() {
       <section aria-label="Tus números" style={{ display: 'flex', gap: 12, padding: '14px 0', borderTop: '1px solid var(--linea)', borderBottom: '1px solid var(--linea)' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.total}</span><span className="caption muted">sesiones</span></div>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number brand" style={{ fontSize: 26 }}>{st.streak} sem.</span><span className="caption muted">en racha</span></div>
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.toRaise}</span><span className="caption muted">para subir peso</span></div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}><span className="number" style={{ fontSize: 26 }}>{st.monthMinutes >= 60 ? `${Math.floor(st.monthMinutes / 60)} h ${st.monthMinutes % 60}′` : `${st.monthMinutes}′`}</span><span className="caption muted">entrenadas este mes</span></div>
       </section>
 
       <nav aria-label="Tu cuenta">

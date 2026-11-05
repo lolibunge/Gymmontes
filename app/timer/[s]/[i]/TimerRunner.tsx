@@ -8,6 +8,7 @@ import { cardioElapsed, cardioEnds, cardioIdx, ENDING_RED, isEnding, patchTimers
 import { pipAuto, pipOpen } from '@/lib/pip';
 import { useWakeLock } from '@/lib/wakelock';
 import { askNotifications, notifState } from '@/lib/bgnotify';
+import NoteSheet from '@/components/NoteSheet';
 
 type Seg = { label: string; min: number };
 
@@ -26,6 +27,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const { timers, now } = useTimers(200);
   const [pipOk, setPipOk] = useState(false);
   const [perm, setPerm] = useState<string>('granted');
+  const [note, setNote] = useState(false);
   useEffect(() => { setPipOk(pipSupported()); setPerm(notifState()); }, []);
   useWakeLock(true);
 
@@ -59,7 +61,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const next = segments[idx + 1];
 
   return (
-    <div className="t-oscuro" style={{ minHeight: '100dvh', background: '#0e0e0e', color: '#f5f5f5' }}>
+    <div className="t-oscuro noselect" style={{ minHeight: '100dvh', background: '#0e0e0e', color: '#f5f5f5' }}>
       <main className="app" style={{ background: '#0e0e0e', padding: 'calc(20px + env(safe-area-inset-top)) 24px calc(32px + env(safe-area-inset-bottom))', gap: 28 }}>
         <header className="row">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -67,6 +69,9 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
             <span style={{ fontSize: 14, color: '#a3a3a3' }}>Tramo {idx + 1} de {segments.length}</span>
           </div>
           <span style={{ display: 'flex', gap: 8 }}>
+            <button type="button" onClick={() => setNote(true)} className="icon-btn" aria-label="Escribir una nota de prueba" style={{ background: '#2a2a2a', color: '#f5f5f5' }}>
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M4 3h9l3 3v11H4z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" /><path d="M7 9h6M7 12.5h4" stroke="currentColor" strokeWidth="1.8" /></svg>
+            </button>
             {pipOk && !finished && (
               <button type="button" onClick={() => openTimerPip()} className="icon-btn" aria-label="Ver el timer en una ventanita flotante" style={{ background: '#2a2a2a', color: '#f5f5f5' }}><PipIcon /></button>
             )}
@@ -140,6 +145,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
           <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
         </section>
       </main>
+      {note && <div className="t-claro" style={{ color: 'var(--guante)' }}><NoteSheet context={`Bici · ${title}`} onClose={() => setNote(false)} /></div>}
     </div>
   );
 }

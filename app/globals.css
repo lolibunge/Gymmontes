@@ -189,3 +189,7 @@ body.has-dock .page, body.has-dock .app > section:first-child { padding-top: 12p
 .acc-rojo, .acc-rojo .t-claro { --violeta: #dc2626; --violeta-texto: #b91c1c; --venda: #fdeaea; --on-violeta: #ffffff; }
 .acc-rojo.t-oscuro, .acc-rojo .t-oscuro { --violeta: #f87171; --violeta-texto: #fca5a5; --venda: #331212; --on-violeta: #1a0505; }
 @media (prefers-color-scheme: dark) { .acc-rojo.t-auto { --violeta: #f87171; --violeta-texto: #fca5a5; --venda: #331212; --on-violeta: #1a0505; } }
+
+/* v1.13 — En la app del socio no se selecciona texto al tocar (los campos sí) */
+.noselect, .noselect * { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.noselect input, .noselect textarea, .noselect select { -webkit-user-select: text; user-select: text; }

@@ -77,7 +77,6 @@ export function frameFor(t: Timers, now = Date.now()) {
  * y en cuanto marcás la próxima serie vuelve a mostrar la cuenta regresiva.
  */
 export function openTimerPip() {
-  setPipAuto(true);
   return openPip(() => {
     const f = frameFor(readTimers()) ?? { title: 'GYM MONTES', big: '¡Dale!', sub: 'Marcá la serie y arranca el descanso' };
     // Desde otra app: cada tanto recuerda cómo volver (Android no deja abrir la app con un solo toque en la ventanita)

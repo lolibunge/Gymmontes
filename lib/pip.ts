@@ -6,7 +6,8 @@
  */
 type Frame = { title: string; big: string; sub: string; red?: boolean };
 
-const AUTO = 'gm-pip-auto';
+// v1.13: clave nueva para que arranque apagada (antes se prendía sola al usar la ventanita una vez)
+const AUTO = 'gm-pip-auto2';
 /** Si la socia ya usó la ventanita, se abre sola en cada descanso (se puede apagar en la sesión). */
 export function pipAuto() { try { return localStorage.getItem(AUTO) === '1'; } catch { return false; } }
 export function setPipAuto(on: boolean) { try { localStorage.setItem(AUTO, on ? '1' : '0'); } catch {} }

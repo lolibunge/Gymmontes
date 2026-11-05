@@ -130,8 +130,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       const setTxt = (x: RunnerItem, r: Row) => (x.kind === 'cardio' ? 'Cardio por tramos' : timedRange(x.reps) ? `${r.reps || x.reps} segundos` : `${r.kg ? `${r.kg} kg × ` : ''}${r.reps || x.reps} reps`);
       // Ventanita flotante en cada descanso (si la usó alguna vez), para verlo desde cualquier app
       if (pipAuto() && pipSupported() && !pipOpen()) openTimerPip().catch(() => {});
-      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); }
-      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); }
+      if (restLeft > 0) { startRest(sessionId, i, `${cur.name} · serie ${nextRow + 1} de ${cur.rows.length}`, setTxt(cur, cur.rows[nextRow])); setRestOpen(true); }
+      else if (nextItem) { startRest(sessionId, i + 1, `Sigue: ${nextItem.name}`, setTxt(nextItem, nextItem.rows[0])); setRestOpen(true); }
       // Última serie del último ejercicio: directo al enfriamiento (si hay)
       else if (cool.length && i === items.length - 1) setTimeout(() => go(items.length), 600);
     }
@@ -205,6 +205,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
                 {checkin?.energy ? ENERGY[checkin.energy - 1].face : '☺'}
               </button>
             )}
+            {pipOk && !past && <button type="button" className="icon-btn" aria-label="Abrir la ventanita flotante" onClick={() => openTimerPip()} style={{ color: 'var(--violeta-texto)' }}><PipIcon /></button>}
             <button type="button" className="icon-btn" aria-label="Escribir una nota de prueba" onClick={() => setNote(true)}><NoteIcon /></button>
             <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify"><Music color="var(--violeta-texto)" size={20} /></a>
           </span>

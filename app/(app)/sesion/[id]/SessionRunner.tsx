@@ -11,6 +11,8 @@ import { useWakeLock } from '@/lib/wakelock';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { closePip, pipAuto, pipOpen, pipSupported, setPipAuto } from '@/lib/pip';
 import NoteSheet from '@/components/NoteSheet';
+import { CheckinEnd, CheckinStart } from '@/components/Checkin';
+import { EMPTY, ENERGY, lowDay, type Checkin, type Hormonal } from '@/lib/checkin';
 import MuscleMap from '@/components/MuscleMap';
 import RestModal from '@/components/RestModal';
 import WarmPanel from './WarmPanel';
@@ -36,7 +38,7 @@ export function timedRange(reps: string | null): [number, number] | null {
 const kgTxt = (n: number) => String(Math.round(n * 10) / 10).replace('.', ',');
 const num = (v: string) => (v.trim() === '' ? null : Number(v.replace(',', '.')));
 
-export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, startAtWarmup, warm, cool, spotify }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; startAtWarmup: boolean; warm: WarmStep[]; cool: WarmStep[]; spotify: string }) {
+export default function SessionRunner({ sessionId, date, past, finished, back, items: initial, start, startAtWarmup, warm, cool, spotify, checkin: initialCheckin, hormonal }: { back: string; sessionId: number; date: string; past: boolean; finished: boolean; items: RunnerItem[]; start: number; startAtWarmup: boolean; warm: WarmStep[]; cool: WarmStep[]; spotify: string; checkin: Checkin | null; hormonal: Hormonal }) {
   const [items, setItems] = useState(() => initial.map((x) => {
     const tr = x.kind === 'ejercicio' ? timedRange(x.reps) : null;
     if (!tr) return x;
@@ -50,7 +52,11 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   const hi = cool.length ? initial.length : initial.length - 1;
   const clamp = (k: number) => Math.max(lo, Math.min(hi, k));
   const [i, setI] = useState(() => clamp(startAtWarmup ? -1 : start));
-  const [phase, setPhase] = useState<{ warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado' }>({});
+  const [phase, setPhase] = useState<{ warm?: 'hecho' | 'salteado'; cool?: 'hecho' | 'salteado'; checkin?: 'hecho' | 'salteado' }>({});
+  // Registro personal: "¿Cómo llegás hoy?" al empezar y "¿Cómo te sentiste?" al terminar
+  const [checkin, setCheckin] = useState<Checkin | null>(initialCheckin);
+  const [sheet, setSheet] = useState<'start' | 'end' | null>(null);
+  const [hideLow, setHideLow] = useState(false);
   const [restOpen, setRestOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [pending, setPending] = useState(0);
@@ -79,6 +85,7 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           rows: x.rows.map((r, j) => (di.rows[j] ? { ...r, kg: di.rows[j].kg, reps: di.rows[j].reps, done: di.rows[j].done } : r)),
         };
       }));
+      if (d.checkin) setCheckin((c) => c ?? d.checkin!);
       if (d.phase) {
         setPhase(d.phase);
         // Ya hizo o salteó el calentamiento: no volver a mostrarlo al abrir
@@ -89,6 +96,8 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
     const w = readTimers().warm;
     if (w && w.sessionId === sessionId) setI(clamp(w.kind === 'calentamiento' ? -1 : initial.length));
     setReady(true);
+    // Sesión nueva de hoy: preguntar cómo llega (una sola vez; se puede saltear)
+    if (!past && !finished && !initialCheckin && !d?.checkin && !d?.phase?.checkin && !initial.some((x) => x.rows.some((r) => r.done))) setSheet('start');
     setPipOk(pipSupported());
     setPending(pendingCount(sessionId));
     flush().catch(() => {});
@@ -98,10 +107,10 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
   // Guardar en el teléfono cada cambio
   useEffect(() => {
     if (!ready) return;
-    const d: Draft = { at: Date.now(), items: {}, phase };
+    const d: Draft = { at: Date.now(), items: {}, phase, checkin: checkin ?? undefined };
     for (const x of items) d.items[x.id] = { rows: x.rows.map((r) => ({ kg: r.kg, reps: r.reps, done: r.done })), feel: x.feel };
     writeDraft(sessionId, d);
-  }, [items, ready, sessionId, phase]);
+  }, [items, ready, sessionId, phase, checkin]);
 
   // Recordar en qué ejercicio estás (para volver al mismo después de ver el video o refrescar)
   useEffect(() => {
@@ -129,7 +138,18 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
     if (patch.done === false && timers.rest?.sessionId === sessionId) { cancelRest.current = true; stopRest(); setRestOpen(false); }
   }
 
-  async function finish() {
+  function saveCheckin(c: Checkin) {
+    setCheckin(c);
+    push({ t: 'checkin', s: sessionId, i: 0, c });
+  }
+
+  /** Terminar: primero "¿Cómo te sentiste?" (salvo sesiones pasadas o que ya lo contestó). */
+  function finish() {
+    if (!past && checkin?.rpe == null && sheet !== 'end') { setSheet('end'); return; }
+    return doFinish();
+  }
+
+  async function doFinish() {
     setBusy(true); setMsg(null);
     const ok = await flush();
     if (!ok) {
@@ -180,6 +200,11 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
           <Link href={back} className="icon-btn" aria-label="Volver a la rutina" style={{ marginLeft: -10 }}><Back /></Link>
           <span className="caption muted" style={{ fontWeight: 500 }}>{corta(date)} · {inWarm ? 'calentamiento' : inCool ? 'enfriamiento' : `ejercicio ${i + 1} de ${items.length}`}</span>
           <span style={{ display: 'flex', marginRight: -10 }}>
+            {!past && (
+              <button type="button" className="icon-btn" aria-label="Cómo llegás hoy" onClick={() => setSheet('start')} style={{ fontSize: 20 }}>
+                {checkin?.energy ? ENERGY[checkin.energy - 1].face : '☺'}
+              </button>
+            )}
             <button type="button" className="icon-btn" aria-label="Escribir una nota de prueba" onClick={() => setNote(true)}><NoteIcon /></button>
             <a href={spotify} target="_blank" rel="noopener" className="icon-btn" aria-label="Abrir música en Spotify"><Music color="var(--violeta-texto)" size={20} /></a>
           </span>
@@ -225,6 +250,16 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
         {it.kind === 'ejercicio' && <MuscleMap muscle={it.muscle} name={it.name} size={130} />}
         {it.note && <p className="caption muted">{it.note}</p>}
       </section>
+
+      {lowDay(checkin) && !hideLow && !inWarm && !inCool && (
+        <section className="card bg-venda" style={{ gap: 4, padding: '12px 14px' }}>
+          <span className="row" style={{ alignItems: 'flex-start' }}>
+            <span className="strong brand" style={{ fontSize: 14 }}>Hoy escuchá al cuerpo 🌱</span>
+            <button type="button" className="link" style={{ fontSize: 13 }} onClick={() => setHideLow(true)}>Ocultar</button>
+          </span>
+          <span className="caption" style={{ color: 'var(--guante)' }}>Llegaste con {checkin?.energy != null && checkin.energy <= 2 ? 'poca energía' : 'malestar'}. Está bien bajar el peso, hacer menos series o cortar antes. Si algo no se siente bien, pará.</span>
+        </section>
+      )}
 
       {rest && (
         <section className="rest-bar" aria-live="polite" style={{ flexWrap: 'wrap' }}>
@@ -357,6 +392,16 @@ export default function SessionRunner({ sessionId, date, past, finished, back, i
       </nav>
       {rest && restOpen && (
         <RestModal rest={rest} now={now} pipOk={pipOk} onClose={() => setRestOpen(false)} onSkip={() => { stopRest(); setRestOpen(false); }} onAsk={askNotifications} />
+      )}
+      {sheet === 'start' && (
+        <CheckinStart value={checkin ?? EMPTY} hormonal={hormonal}
+          onSave={(c) => { saveCheckin(c); setPhase((p) => ({ ...p, checkin: 'hecho' })); setSheet(null); }}
+          onSkip={() => { setPhase((p) => ({ ...p, checkin: p.checkin ?? 'salteado' })); setSheet(null); }} />
+      )}
+      {sheet === 'end' && (
+        <CheckinEnd value={checkin ?? EMPTY} busy={busy}
+          onSave={(c) => { saveCheckin(c); doFinish(); }}
+          onSkip={() => doFinish()} />
       )}
       {note && <NoteSheet context={`Sesión ${corta(date)} · ${it.name}`} onClose={() => setNote(false)} />}
     </main>

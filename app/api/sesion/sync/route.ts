@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 type Op =
   | { t: 'set'; s: number; i: number; n: number; kg: number | null; reps: number | null; done: boolean }
   | { t: 'feel'; s: number; i: number; feel: 'liviano' | 'justo' | 'pesado' | null }
-  | { t: 'cardio'; s: number; i: number; minutes: number };
+  | { t: 'cardio'; s: number; i: number; minutes: number }
+  | { t: 'checkin'; s: number; i: number; c: { energy: number | null; sleep: string | null; signals: string[]; period: boolean | null; note: string | null; rpe: number | null; after_note: string | null } };
 
 const int = (v: unknown) => (Number.isInteger(v) ? (v as number) : null);
 const numOrNull = (v: unknown) => (v == null || v === '' ? null : Number.isFinite(Number(v)) ? Number(v) : null);
@@ -47,6 +48,20 @@ export async function POST(req: Request) {
           [s, i, o.feel]
         ).catch(() => {});
       }
+    } else if (o.t === 'checkin') {
+      // Registro personal de la sesión (privado de la socia)
+      const c = o.c ?? ({} as any);
+      const inRange = (v: unknown, a: number, b: number) => (Number.isInteger(v) && (v as number) >= a && (v as number) <= b ? (v as number) : null);
+      const txt = (v: unknown, max: number) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+      await q(
+        `insert into session_checkins (session_id, user_id, energy, sleep, signals, period, note, rpe, after_note, updated_at)
+         values ($1,$2,$3,$4,$5,$6,$7,$8,$9, now())
+         on conflict (session_id) do update set energy = excluded.energy, sleep = excluded.sleep, signals = excluded.signals,
+           period = excluded.period, note = excluded.note, rpe = excluded.rpe, after_note = excluded.after_note, updated_at = now()`,
+        [s, user.id, inRange(c.energy, 1, 5), ['mal', 'normal', 'bien'].includes(String(c.sleep)) ? c.sleep : null,
+         Array.isArray(c.signals) ? c.signals.filter((x: unknown) => typeof x === 'string').slice(0, 12).map((x: string) => x.slice(0, 40)) : [],
+         typeof c.period === 'boolean' ? c.period : null, txt(c.note, 1000), inRange(c.rpe, 1, 10), txt(c.after_note, 1000)]
+      ).catch(() => {});
     } else if (o.t === 'cardio') {
       const m = Math.max(0, Math.round(Number(o.minutes) || 0));
       await q(

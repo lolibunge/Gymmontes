@@ -86,7 +86,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
             const big: React.CSSProperties = { fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 'min(112px, 26vw)', lineHeight: 1, letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums', color: running && isEnding(left) ? ENDING_RED : undefined, transition: 'color .2s' };
             const unit: React.CSSProperties = { fontSize: 12, fontWeight: 600, letterSpacing: '0.1em', color: '#a3a3a3', paddingLeft: 4 };
             return (
-              <span role="timer" aria-label={`${Math.floor(t / 60)} minutos ${t % 60} segundos`} style={{ display: 'flex', alignItems: 'flex-start' }}>
+              <span role="timer" aria-label={`${Math.floor(t / 60)} minutos ${t % 60} segundos`} style={{ display: 'flex', alignItems: 'flex-start' }} className={!running && elapsed > 0 && !finished ? 'en-pausa' : undefined}>
                 <span style={{ display: 'flex', flexDirection: 'column' }}><span style={big}>{String(Math.floor(t / 60)).padStart(2, '0')}</span><span style={unit}>MIN</span></span>
                 <span style={{ ...big, padding: '0 2px', opacity: running ? 1 : 0.5 }}>:</span>
                 <span style={{ display: 'flex', flexDirection: 'column' }}><span style={big}>{String(t % 60).padStart(2, '0')}</span><span style={unit}>SEG</span></span>
@@ -135,12 +135,6 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
                 <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true"><path d="M4 4l9 6-9 6z" fill="#f5f5f5" /><rect x="13.5" y="4" width="2.5" height="12" fill="#f5f5f5" /></svg>
               </button>
             </div>
-          )}
-          {perm === 'default' && !finished && (
-            <button type="button" onClick={async () => { await askNotifications(); setPerm(notifState()); }}
-              style={{ border: 0, borderRadius: 4, padding: '12px 14px', background: '#251429', color: '#f5f5f5', textAlign: 'left', cursor: 'pointer' }}>
-              <span className="strong" style={{ color: 'var(--acento-claro)' }}>🔔 Avisame aunque esté en otra app</span>
-            </button>
           )}
           <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
         </section>

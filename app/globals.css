@@ -206,3 +206,6 @@ body.has-dock .page, body.has-dock .app > section:first-child { padding-top: 12p
 @media (prefers-reduced-motion: reduce) { .ticker-track { animation: none; } }
 /* La cinta ya respeta el borde de arriba del teléfono: la página no suma el margen otra vez */
 .ticker + .page { padding-top: 16px; }
+/* Timer en pausa: los números titilan */
+.en-pausa { animation: titilar 1.2s steps(1) infinite; }
+@keyframes titilar { 50% { opacity: 0; } }

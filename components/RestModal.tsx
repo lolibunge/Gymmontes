@@ -44,15 +44,6 @@ export default function RestModal({ rest, now, pipOk, onClose, onSkip, onAsk }: 
           )}
         </section>
 
-        {perm === 'default' && (
-          <button type="button" onClick={async () => { await onAsk(); setPerm(notifState()); }}
-            style={{ border: 0, borderRadius: 4, padding: '12px 14px', background: '#251429', color: '#f5f5f5', textAlign: 'left', cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <span className="strong" style={{ color: 'var(--acento-claro)' }}>🔔 Avisame aunque esté en otra app</span>
-            <span style={{ fontSize: 13, color: '#bdbdbd' }}>Si te vas a Spotify o WhatsApp, te llega una notificación cuando termina el descanso.</span>
-          </button>
-        )}
-        {perm === 'denied' && <p style={{ fontSize: 12, color: '#a3a3a3' }}>Los avisos están bloqueados. Activalos en los ajustes del navegador para este sitio si querés que te avise desde otras apps.</p>}
-
         {pipOk && (
           <button type="button" className="ctl" style={{ flex: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
             onClick={() => { openTimerPip(); onClose(); }}>

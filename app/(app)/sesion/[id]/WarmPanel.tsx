@@ -22,6 +22,7 @@ export default function WarmPanel({ sessionId, kind, steps, status, onDone }: {
   const finished = k >= steps.length;
   const total = steps.reduce((a, s) => a + (s.s ?? 0), 0);
   const base = { sessionId, kind, steps };
+  const running = w ? w.paused == null : false;
 
   function start(n: number) {
     // Ventanita flotante (si la usás en los descansos), así lo ves desde cualquier app
@@ -44,7 +45,7 @@ export default function WarmPanel({ sessionId, kind, steps, status, onDone }: {
           <span className="label" style={{ color: 'var(--acento-claro)' }}>Paso {k + 1} de {steps.length}</span>
           <span style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 24, lineHeight: '26px', textTransform: 'uppercase' }}>{cur.name}</span>
           {left != null && (
-            <span role="timer" style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 56, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: w.endsAt != null && isEnding(left) ? ENDING_RED : undefined }}>{mmss(left)}</span>
+            <span role="timer" style={{ fontFamily: 'var(--font-archivo)', fontWeight: 900, fontSize: 56, lineHeight: 1, fontVariantNumeric: 'tabular-nums', color: w.endsAt != null && isEnding(left) ? ENDING_RED : undefined }} className={!running ? 'en-pausa' : undefined} >{mmss(left)}</span>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
             {cur.s != null && (

@@ -1,6 +1,6 @@
 // Crea las tablas (si no existen) y carga los datos de ejemplo la primera vez.
 // Corre solo antes de cada build en Vercel. Si no hay DATABASE_URL, no hace nada.
-import { EXERCISE_INFO } from './exercise-info.mjs';
+import { EXERCISE_INFO, DISC_RACK } from './exercise-info.mjs';
 import pg from 'pg';
 import crypto from 'node:crypto';
 
@@ -289,6 +289,7 @@ async function main() {
       console.log('[db] Tablas listas; ya hay datos, no se carga el ejemplo.');
       await ensureOwners(client);
       await ensurePaySettings(client);
+      await ensureDiscRack(client);
       await ensureExerciseInfo(client);
       await cleanupV11(client);
       await ensurePhrases(client);
@@ -383,7 +384,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 async function ensureExerciseInfo(client) {
   const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const map = new Map();
-  for (const info of EXERCISE_INFO) for (const n of info.names) map.set(norm(n), info);
+  for (const info of [...EXERCISE_INFO, ...DISC_RACK]) for (const n of info.names) map.set(norm(n), info);
   const { rows } = await client.query('select id, name from exercises');
   let n = 0;
   for (const r of rows) {
@@ -400,6 +401,44 @@ async function ensureExerciseInfo(client) {
     n += u.rowCount;
   }
   if (n) console.log(`[db] Pasos y videos cargados en ${n} ejercicios.`);
+}
+
+// v1.20: el QR del rack de discos abría directo el crunch (era el único ejercicio de esa máquina).
+// Le sumamos los ejercicios que se hacen con disco para que muestre la lista, como el rack de mancuernas.
+// Una sola vez; si no encuentra el rack, lo intenta de nuevo en el próximo deploy.
+async function ensureDiscRack(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'rack_discos_v1'`);
+  if (done.rowCount) return;
+  // 1) La máquina que se llama "…disco…"; 2) si no, la del crunch cuando es su único ejercicio.
+  let code = (await client.query(`select code from machines where name ilike '%disco%' order by code`)).rows;
+  if (code.length !== 1) {
+    code = (await client.query(
+      `select e.machine_code as code from exercises e
+        where e.machine_code is not null and e.name ilike '%crunch%'
+          and (select count(*) from exercises x where x.machine_code = e.machine_code) = 1`)).rows;
+  }
+  if (code.length !== 1) { console.log('[db] Rack de discos: no se encontró la máquina, queda para el próximo deploy.'); return; }
+  const mc = code[0].code;
+  const norm = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const { rows: all } = await client.query('select id, name, machine_code from exercises');
+  let n = 0;
+  for (const d of DISC_RACK) {
+    const names = d.names.map(norm);
+    const found = all.find((r) => names.includes(norm(r.name)));
+    if (found) {
+      if (!found.machine_code) { await client.query('update exercises set machine_code = $2 where id = $1', [found.id, mc]); n++; }
+      continue;
+    }
+    const r = await client.query(
+      `insert into exercises (slug, name, muscle, machine_code, steps, video_url) values ($1,$2,$3,$4,$5,$6)
+       on conflict (slug) do nothing`,
+      [d.slug, d.names[0], d.muscle, mc, JSON.stringify(d.steps), d.video]);
+    n += r.rowCount;
+  }
+  await client.query(`insert into machines (code, name) values ($1, 'Rack de discos')
+                      on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [mc]);
+  await client.query(`insert into gym_settings (key, value) values ('rack_discos_v1', $1) on conflict (key) do nothing`, [mc]);
+  console.log(`[db] Rack de discos (${mc}): ${n} ejercicios sumados.`);
 }
 
 async function ensurePaySettings(client) {

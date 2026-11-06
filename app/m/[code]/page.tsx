@@ -2,7 +2,8 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { one, q } from '@/lib/db';
 import { currentUser } from '@/lib/auth';
-import { Chevron, Close } from '@/components/Icons';
+import { Chevron } from '@/components/Icons';
+import CloseButton from '@/components/CloseButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,7 +22,8 @@ export default async function Maquina({ params }: { params: { code: string } }) 
       <main className="page">
         <div className="row">
           <span className="badge" style={{ boxShadow: 'inset 0 0 0 1px var(--linea)', letterSpacing: '0.08em' }}>MÁQUINA {code.replace(/^M/, '')}</span>
-          <Link href="/" className="icon-btn" aria-label="Cerrar" style={{ background: 'var(--cuerda)' }}><Close /></Link>
+          {/* Cerrar vuelve al escáner (como en las fichas con video), no al Inicio */}
+          <CloseButton fallback="/escanear" style={{ background: 'var(--cuerda)' }} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <h1 className="title-lg">{m?.name ?? 'Esta máquina'}</h1>

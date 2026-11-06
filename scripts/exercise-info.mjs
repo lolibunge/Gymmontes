@@ -279,3 +279,69 @@ export const EXERCISE_INFO = [
     video: 'https://www.youtube.com/shorts/-R5KFBgTqJs',
   },
 ];
+
+// Rack de discos: lo que se puede hacer con un disco. Sin video propio todavía:
+// "Ver videos de cómo se hace" abre una búsqueda en YouTube hasta que la entrenadora cargue uno.
+export const DISC_RACK = [
+  {
+    slug: 'giro-ruso-disco',
+    names: ['Giro ruso con disco', 'Russian twist con disco', 'Russian twist'],
+    muscle: 'Abdomen · oblicuos',
+    steps: [
+      'Sentate en la colchoneta con las rodillas flexionadas y los talones apoyados.',
+      'Sostené el disco con las dos manos frente al pecho.',
+      'Inclinate un poco hacia atrás con la espalda recta y el abdomen firme.',
+      'Girá el torso y llevá el disco hacia un costado, después hacia el otro.',
+      'El movimiento sale de la cintura, no de los brazos. Si te cuesta, dejá los pies apoyados.',
+    ],
+    video: 'https://www.youtube.com/results?search_query=giro+ruso+con+disco',
+  },
+  {
+    slug: 'elevacion-frontal-disco',
+    names: ['Elevación frontal con disco', 'Elevaciones frontales con disco'],
+    muscle: 'Hombros',
+    steps: [
+      'De pie, pies al ancho de la cadera, el disco agarrado de los costados frente a los muslos.',
+      'Codos apenas flexionados y abdomen firme.',
+      'Subí el disco al frente hasta la altura de los ojos, sin balancear el cuerpo.',
+      'Bajá lento, en 2 o 3 segundos.',
+    ],
+    video: 'https://www.youtube.com/results?search_query=elevacion+frontal+con+disco',
+  },
+  {
+    slug: 'sentadilla-disco',
+    names: ['Sentadilla con disco', 'Sentadilla goblet con disco'],
+    muscle: 'Piernas · cuádriceps y glúteos',
+    steps: [
+      'Abrazá el disco contra el pecho, pies un poco más abiertos que los hombros.',
+      'Bajá llevando la cadera atrás y abajo, con el pecho alto.',
+      'Rodillas en la línea de los pies, talones siempre apoyados.',
+      'Bajá hasta donde mantengas la espalda recta y subí empujando con todo el pie.',
+    ],
+    video: 'https://www.youtube.com/results?search_query=sentadilla+con+disco+al+pecho',
+  },
+  {
+    slug: 'zancada-disco',
+    names: ['Zancadas con disco', 'Estocadas con disco', 'Zancada con disco'],
+    muscle: 'Piernas · cuádriceps y glúteos',
+    steps: [
+      'Sostené el disco contra el pecho, de pie y con el abdomen firme.',
+      'Dá un paso largo adelante y bajá hasta que las dos rodillas queden cerca de 90°.',
+      'La rodilla de adelante no pasa la punta del pie; el torso queda derecho.',
+      'Volvé empujando con el talón de adelante y alterná las piernas.',
+    ],
+    video: 'https://www.youtube.com/results?search_query=zancadas+con+disco',
+  },
+  {
+    slug: 'peso-muerto-rumano-disco',
+    names: ['Peso muerto rumano con disco'],
+    muscle: 'Piernas · isquiotibiales y glúteos',
+    steps: [
+      'De pie, el disco agarrado de los costados frente a los muslos, rodillas apenas flexionadas.',
+      'Llevá la cadera hacia atrás y bajá el disco pegado a las piernas, con la espalda recta.',
+      'Bajá hasta sentir que estira la parte de atrás del muslo (más o menos a media pierna).',
+      'Subí apretando los glúteos, sin echar el cuerpo hacia atrás arriba.',
+    ],
+    video: 'https://www.youtube.com/results?search_query=peso+muerto+rumano+con+disco',
+  },
+];

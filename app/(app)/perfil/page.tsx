@@ -121,7 +121,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
-      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.21 beta · Desarrollado por Loli Bunge</p>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.22 beta · Desarrollado por Loli Bunge</p>
     </main>
   );
 }

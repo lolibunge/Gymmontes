@@ -293,6 +293,7 @@ async function main() {
       await ensurePaySettings(client);
       await ensureDiscRack(client);
       await ensureHackMerge(client);
+      await ensureFemoralUni(client);
       await ensureExerciseInfo(client);
       await cleanupV11(client);
       await ensurePhrases(client);
@@ -463,6 +464,26 @@ async function ensureHackMerge(client) {
                       on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [keep]);
   await client.query(`insert into gym_settings (key, value) values ('maquina_hack_v1', $1) on conflict (key) do nothing`, [`${old}->${keep}`]);
   console.log(`[db] Máquina hack: ${old} unida a ${keep}.`);
+}
+
+// v1.20: como la extensión de cuádriceps, el QR del femoral prono ofrece la versión normal y la unilateral.
+async function ensureFemoralUni(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'femoral_uni_v1'`);
+  if (done.rowCount) return;
+  const codes = (await client.query(
+    `select distinct machine_code as c from exercises where machine_code is not null and name ilike '%femoral%prono%'`)).rows;
+  if (codes.length !== 1) { console.log('[db] Femoral prono: no se encontró la máquina, queda para el próximo deploy.'); return; }
+  const mc = codes[0].c;
+  const uni = (await client.query(`select id, machine_code from exercises where name ilike '%femoral%uni%'`)).rows;
+  if (uni.length) {
+    await client.query('update exercises set machine_code = $2 where id = any($1) and machine_code is null', [uni.map((u) => u.id), mc]);
+  } else {
+    await client.query(
+      `insert into exercises (slug, name, muscle, machine_code) values ('femoral-prono-unilateral', 'Femoral prono unilateral', $2, $1)
+       on conflict (slug) do nothing`, [mc, 'Piernas · isquiotibiales (femorales)']);
+  }
+  await client.query(`insert into gym_settings (key, value) values ('femoral_uni_v1', $1) on conflict (key) do nothing`, [mc]);
+  console.log(`[db] Femoral prono (${mc}): versión unilateral en el QR.`);
 }
 
 async function ensurePaySettings(client) {

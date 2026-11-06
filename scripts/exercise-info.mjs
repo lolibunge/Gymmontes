@@ -43,7 +43,7 @@ export const EXERCISE_INFO = [
     video: 'https://www.youtube.com/shorts/9XWxpd_kVko',
   },
   {
-    names: ['Femoral prono', 'Femoral prono unilateral', 'Curl femoral acostado'],
+    names: ['Femoral prono', 'Femoral prono unilateral', 'Femoral prono uni.', 'Femoral prono uni', 'Femoral prono (unilateral)', 'Curl femoral acostado'],
     muscle: 'Piernas · isquiotibiales (femorales)',
     steps: [
       'Acostate boca abajo con la rodilla justo pasando el borde del banco.',

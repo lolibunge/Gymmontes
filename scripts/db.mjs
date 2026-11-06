@@ -36,18 +36,6 @@ alter table users add column if not exists show_birthday boolean not null defaul
 alter table users add column if not exists accent text not null default 'violeta';
 alter table users add column if not exists hormonal text not null default 'ninguno';
 alter table users add column if not exists nickname text;
-create table if not exists session_checkins (
-  session_id int primary key references sessions(id) on delete cascade,
-  user_id int not null references users(id) on delete cascade,
-  energy int check (energy between 1 and 5),
-  sleep text check (sleep in ('mal','normal','bien')),
-  signals text[] not null default '{}',
-  period boolean,
-  note text,
-  rpe int check (rpe between 1 and 10),
-  after_note text,
-  updated_at timestamptz not null default now()
-);
 create table if not exists exercises (
   id serial primary key,
   slug text not null unique,
@@ -99,6 +87,18 @@ create table if not exists sessions (
   date date not null,
   started_at timestamptz not null default now(),
   finished_at timestamptz
+);
+create table if not exists session_checkins (
+  session_id int primary key references sessions(id) on delete cascade,
+  user_id int not null references users(id) on delete cascade,
+  energy int check (energy between 1 and 5),
+  sleep text check (sleep in ('mal','normal','bien')),
+  signals text[] not null default '{}',
+  period boolean,
+  note text,
+  rpe int check (rpe between 1 and 10),
+  after_note text,
+  updated_at timestamptz not null default now()
 );
 create table if not exists set_logs (
   id serial primary key,
@@ -293,8 +293,9 @@ async function main() {
       await ensurePaySettings(client);
       await ensureDiscRack(client);
       await ensureHackMerge(client);
-      await ensureFemoralUni(client);
+      await ensureFemoralV2(client);
       await ensureExerciseInfo(client);
+      await ensureFemoralTips(client);
       await cleanupV11(client);
       await ensurePhrases(client);
       return;
@@ -466,24 +467,58 @@ async function ensureHackMerge(client) {
   console.log(`[db] Máquina hack: ${old} unida a ${keep}.`);
 }
 
-// v1.20: como la extensión de cuádriceps, el QR del femoral prono ofrece la versión normal y la unilateral.
-async function ensureFemoralUni(client) {
-  const done = await client.query(`select 1 from gym_settings where key = 'femoral_uni_v1'`);
+// v1.22: el QR del femoral prono ofrece la versión normal y la unilateral (como la extensión de cuádriceps),
+// y los pasos suman las variantes de técnica. Reemplaza al intento de v1.21, que no alcanzaba si el
+// unilateral ya tenía otro código o si el femoral no se llamaba exactamente "femoral prono".
+const FEMORAL_TIPS = [
+  'Variante: puntas de los pies hacia adentro o hacia afuera cambia un poco qué parte del femoral trabaja más.',
+  'Variante: bajada lenta, en 3 o 4 segundos, para hacerlo más intenso sin subir el peso.',
+  'Variante: pausa de 1 o 2 segundos arriba, con el talón cerca de la cola.',
+];
+async function ensureFemoralV2(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'femoral_v2'`);
   if (done.rowCount) return;
-  const codes = (await client.query(
-    `select distinct machine_code as c from exercises where machine_code is not null and name ilike '%femoral%prono%'`)).rows;
-  if (codes.length !== 1) { console.log('[db] Femoral prono: no se encontró la máquina, queda para el próximo deploy.'); return; }
-  const mc = codes[0].c;
-  const uni = (await client.query(`select id, machine_code from exercises where name ilike '%femoral%uni%'`)).rows;
-  if (uni.length) {
-    await client.query('update exercises set machine_code = $2 where id = any($1) and machine_code is null', [uni.map((u) => u.id), mc]);
-  } else {
+  const all = (await client.query(
+    `select id, name, machine_code from exercises where name ilike '%femoral%' and name not ilike '%sentado%' and name not ilike '%pie%' order by id`)).rows;
+  const isUni = (n) => /uni/i.test(n);
+  const base = all.filter((e) => !isUni(e.name));
+  const uni = all.filter((e) => isUni(e.name));
+  // La máquina: la del femoral normal; si no tiene, la del unilateral
+  const mc = base.find((e) => e.machine_code)?.machine_code ?? uni.find((e) => e.machine_code)?.machine_code;
+  if (!mc) { console.log('[db] Femoral: ningún ejercicio femoral tiene máquina, queda para el próximo deploy.'); return; }
+  // Todos los femorales (normal y unilateral) a esa máquina; los códigos viejos siguen andando como alias
+  for (const e of all) {
+    if (e.machine_code === mc) continue;
+    await client.query('update exercises set machine_code = $2 where id = $1', [e.id, mc]);
+    if (e.machine_code) {
+      const left = await client.query('select 1 from exercises where machine_code = $1', [e.machine_code]);
+      if (!left.rowCount) await client.query(
+        `insert into machines (code, same_as) values ($1, $2) on conflict (code) do update set same_as = excluded.same_as`, [e.machine_code, mc]);
+    }
+  }
+  if (!uni.length) {
     await client.query(
       `insert into exercises (slug, name, muscle, machine_code) values ('femoral-prono-unilateral', 'Femoral prono unilateral', $2, $1)
-       on conflict (slug) do nothing`, [mc, 'Piernas · isquiotibiales (femorales)']);
+       on conflict (slug) do update set machine_code = excluded.machine_code`, [mc, 'Piernas · isquiotibiales (femorales)']);
   }
-  await client.query(`insert into gym_settings (key, value) values ('femoral_uni_v1', $1) on conflict (key) do nothing`, [mc]);
-  console.log(`[db] Femoral prono (${mc}): versión unilateral en el QR.`);
+  await client.query(`insert into machines (code, name) values ($1, 'Femoral prono')
+                      on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [mc]);
+  await client.query(`insert into gym_settings (key, value) values ('femoral_v2', $1) on conflict (key) do nothing`, [mc]);
+  console.log(`[db] Femoral (${mc}): normal y unilateral en el mismo QR.`);
+}
+
+// Variantes de técnica al final de los pasos de los femorales (sin tocar lo que escribió la entrenadora).
+async function ensureFemoralTips(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'femoral_tips_v1'`);
+  if (done.rowCount) return;
+  const { rows } = await client.query(
+    `select id, steps from exercises where name ilike '%femoral%prono%' and jsonb_array_length(steps) > 0`);
+  for (const r of rows) {
+    if (r.steps.some((t) => /^Variante:/.test(t))) continue;
+    await client.query('update exercises set steps = $2 where id = $1', [r.id, JSON.stringify([...r.steps, ...FEMORAL_TIPS])]);
+  }
+  // Una sola vez: si la entrenadora después borra o cambia las variantes, no vuelven a aparecer
+  if (rows.length) await client.query(`insert into gym_settings (key, value) values ('femoral_tips_v1', 'si') on conflict (key) do nothing`);
 }
 
 async function ensurePaySettings(client) {

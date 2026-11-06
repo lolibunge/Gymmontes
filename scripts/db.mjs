@@ -62,6 +62,8 @@ create table if not exists machines (
   code text primary key,
   name text
 );
+-- Un QR viejo que ahora apunta a otra máquina (ej.: talones se unió a la hack)
+alter table machines add column if not exists same_as text;
 create table if not exists routines (
   id serial primary key,
   user_id int not null references users(id) on delete cascade,
@@ -221,7 +223,7 @@ const EXERCISES = [
   EX('femoral-prono', 'Femoral prono', 'Piernas · isquiotibiales', 'M03'),
   EX('press-pecho-mancuernas', 'Press de pecho con mancuernas', 'Pecho'),
   EX('remo-polea-baja', 'Remo en polea baja', 'Espalda', 'M04'),
-  EX('elevacion-talones', 'Elevación de talones', 'Piernas · gemelos', 'M05'),
+  EX('elevacion-talones', 'Elevación de talones', 'Piernas · gemelos', 'M01'), // misma máquina que la hack
   EX('jalon-pecho', 'Jalón al pecho', 'Espalda', 'M06'),
   EX('press-hombros', 'Press de hombros con mancuernas', 'Hombros'),
   EX('elevaciones-laterales', 'Elevaciones laterales', 'Hombros'),
@@ -290,6 +292,7 @@ async function main() {
       await ensureOwners(client);
       await ensurePaySettings(client);
       await ensureDiscRack(client);
+      await ensureHackMerge(client);
       await ensureExerciseInfo(client);
       await cleanupV11(client);
       await ensurePhrases(client);
@@ -439,6 +442,27 @@ async function ensureDiscRack(client) {
                       on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [mc]);
   await client.query(`insert into gym_settings (key, value) values ('rack_discos_v1', $1) on conflict (key) do nothing`, [mc]);
   console.log(`[db] Rack de discos (${mc}): ${n} ejercicios sumados.`);
+}
+
+// v1.20: la sentadilla hack y las elevaciones de talones se hacen en la misma máquina.
+// Queda un solo código con los dos ejercicios; el QR del otro sigue andando y lleva a la misma pantalla.
+async function ensureHackMerge(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'maquina_hack_v1'`);
+  if (done.rowCount) return;
+  const codeOf = async (like) => (await client.query(
+    `select distinct machine_code as c from exercises where machine_code is not null and name ilike $1`, [like])).rows;
+  const hack = await codeOf('%hack%');
+  const tal = await codeOf('%talones%');
+  if (hack.length !== 1 || tal.length !== 1) { console.log('[db] Máquina hack: no se encontraron los dos códigos, queda para el próximo deploy.'); return; }
+  const keep = hack[0].c, old = tal[0].c;
+  if (keep !== old) {
+    await client.query('update exercises set machine_code = $1 where machine_code = $2', [keep, old]);
+    await client.query(`insert into machines (code, same_as) values ($1, $2) on conflict (code) do update set same_as = excluded.same_as`, [old, keep]);
+  }
+  await client.query(`insert into machines (code, name) values ($1, 'Máquina hack')
+                      on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [keep]);
+  await client.query(`insert into gym_settings (key, value) values ('maquina_hack_v1', $1) on conflict (key) do nothing`, [`${old}->${keep}`]);
+  console.log(`[db] Máquina hack: ${old} unida a ${keep}.`);
 }
 
 async function ensurePaySettings(client) {

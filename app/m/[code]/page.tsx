@@ -9,12 +9,18 @@ export const dynamic = 'force-dynamic';
 
 // El sticker QR de cada máquina apunta a /m/<código>, por ejemplo /m/M07.
 // Si en la máquina se hace un solo ejercicio, abre su ficha; si son varios, deja elegir.
+// Un código viejo (machines.same_as) redirige a la máquina con la que se unió.
 export default async function Maquina({ params }: { params: { code: string } }) {
   if (!(await currentUser())) redirect(`/login?next=${encodeURIComponent(`/m/${params.code}`)}`);
   const code = params.code.toUpperCase();
   const exs = await q<{ slug: string; name: string; muscle: string | null }>(
     'select slug, name, muscle from exercises where upper(machine_code) = $1 order by name', [code]);
-  if (!exs.length) notFound();
+  if (!exs.length) {
+    // QR viejo de una máquina que se unió a otra: lleva a la misma pantalla
+    const alias = await one<{ same_as: string | null }>('select same_as from machines where upper(code) = $1', [code]);
+    if (alias?.same_as && alias.same_as.toUpperCase() !== code) redirect(`/m/${alias.same_as}`);
+    notFound();
+  }
   if (exs.length === 1) redirect(`/ejercicio/${exs[0].slug}`);
   const m = await one<{ name: string | null }>('select name from machines where code = $1', [code]);
   return (

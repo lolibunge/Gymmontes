@@ -1,6 +1,7 @@
 // Crea las tablas (si no existen) y carga los datos de ejemplo la primera vez.
 // Corre solo antes de cada build en Vercel. Si no hay DATABASE_URL, no hace nada.
 import { EXERCISE_INFO, DISC_RACK } from './exercise-info.mjs';
+import { NEW_MACHINES } from './machines-new.mjs';
 import pg from 'pg';
 import crypto from 'node:crypto';
 
@@ -294,6 +295,7 @@ async function main() {
       await ensureDiscRack(client);
       await ensureHackMerge(client);
       await ensureFemoralV2(client);
+      await ensureNewMachines(client);
       await ensureExerciseInfo(client);
       await ensureFemoralTips(client);
       await cleanupV11(client);
@@ -363,6 +365,7 @@ async function main() {
     await client.query('commit');
     await ensureOwners(client);
     await ensurePaySettings(client);
+    await ensureNewMachines(client);
     await ensureExerciseInfo(client);
     await ensurePhrases(client);
     console.log('[db] Listo.');
@@ -389,7 +392,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 async function ensureExerciseInfo(client) {
   const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const map = new Map();
-  for (const info of [...EXERCISE_INFO, ...DISC_RACK]) for (const n of info.names) map.set(norm(n), info);
+  for (const info of [...EXERCISE_INFO, ...DISC_RACK, ...NEW_MACHINES.flatMap((m) => m.exercises)]) for (const n of info.names) map.set(norm(n), info);
   const { rows } = await client.query('select id, name from exercises');
   let n = 0;
   for (const r of rows) {
@@ -444,6 +447,52 @@ async function ensureDiscRack(client) {
                       on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [mc]);
   await client.query(`insert into gym_settings (key, value) values ('rack_discos_v1', $1) on conflict (key) do nothing`, [mc]);
   console.log(`[db] Rack de discos (${mc}): ${n} ejercicios sumados.`);
+}
+
+// v1.23: máquinas que no tenían QR (Scott, Smith, soportes, banco con soportes, press de pecho ZEUS,
+// rack de barras fijas y torre de dominadas). Cada una toma el próximo código libre (M10, M11…)
+// sin tocar los QR ya pegados. Una sola vez; queda guardado qué código le tocó a cada una.
+async function ensureNewMachines(client) {
+  const done = await client.query(`select 1 from gym_settings where key = 'maquinas_nuevas_v1'`);
+  if (done.rowCount) return;
+  const norm = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  await client.query('begin');
+  try {
+    const used = (await client.query(
+      `select code as c from machines union select machine_code from exercises where machine_code is not null`)).rows
+      .map((r) => String(r.c).toUpperCase());
+    let n = Math.max(0, ...used.map((c) => Number(c.match(/^M(\d+)$/)?.[1] ?? 0)));
+    const { rows: all } = await client.query('select id, name, machine_code from exercises');
+    const out = [];
+    for (const m of NEW_MACHINES) {
+      let code;
+      do { n++; code = `M${String(n).padStart(2, '0')}`; } while (used.includes(code));
+      let k = 0;
+      for (const e of m.exercises) {
+        const found = all.find((r) => e.names.some((x) => norm(x) === norm(r.name)));
+        if (found) {
+          // Ya existía (la cargó la entrenadora): solo le pone la máquina si no tenía
+          if (!found.machine_code) { await client.query('update exercises set machine_code = $2 where id = $1', [found.id, code]); k++; }
+          continue;
+        }
+        const r = await client.query(
+          `insert into exercises (slug, name, muscle, machine_code, steps, video_url) values ($1,$2,$3,$4,$5,$6)
+           on conflict (slug) do nothing`,
+          [e.slug, e.names[0], e.muscle, code, JSON.stringify(e.steps), e.video]);
+        k += r.rowCount;
+      }
+      await client.query(`insert into machines (code, name) values ($1, $2)
+                          on conflict (code) do update set name = coalesce(nullif(machines.name, ''), excluded.name)`, [code, m.name]);
+      out.push(`${code} ${m.name} (${k})`);
+    }
+    await client.query(`insert into gym_settings (key, value) values ('maquinas_nuevas_v1', $1) on conflict (key) do nothing`,
+      [out.map((x) => x.split(' ')[0]).join(',')]);
+    await client.query('commit');
+    console.log(`[db] Máquinas nuevas: ${out.join(' · ')}.`);
+  } catch (err) {
+    await client.query('rollback');
+    throw err;
+  }
 }
 
 // v1.20: la sentadilla hack y las elevaciones de talones se hacen en la misma máquina.

@@ -318,6 +318,9 @@ async function Maquinas() {
         {faltan > 0 && <> <b style={{ color: 'var(--guante)' }}>{faltan} {faltan === 1 ? 'ejercicio que se usa no tiene' : 'ejercicios que se usan no tienen'} pasos o video.</b> Arriba están los que más socios usan: conviene empezar por esos.</>}
       </p>
       {maquinas.length > 0 && (
+        <Link href="/admin/qr" className="btn btn-outline" style={{ justifyContent: 'center', minHeight: 44, fontSize: 14, marginBottom: 12 }}>Plancha de QRs para imprimir</Link>
+      )}
+      {maquinas.length > 0 && (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, paddingBottom: 12 }}>
           {maquinas.map((m) => (
             <span key={m.code} className="badge" style={{ background: 'var(--cuerda)', color: 'var(--guante)', fontWeight: 600 }}>

@@ -115,7 +115,13 @@ textarea.input { height: auto; padding: 14px; line-height: 21px; resize: none; }
   .no-print, .tabbar, header { display: none !important; }
   body, .app, .page { background: #fff !important; color: #111 !important; padding: 0 !important; }
   .print-sticker { box-shadow: none !important; border: 2px solid #111; max-width: 320px; margin: 24px auto; color: #111; }
+  .qr-sheet { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+  .qr-sticker { border: 2px solid #111 !important; box-shadow: none !important; color: #111 !important; break-inside: avoid; page-break-inside: avoid; }
 }
+
+/* Plancha con todos los QR de las máquinas (/admin/qr) */
+.qr-sheet { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.qr-sticker { display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; padding: 12px; border-radius: 6px; box-shadow: inset 0 0 0 1.5px var(--linea); }
 
 /* v1.1 — toques sin demora (sin zoom por doble toque) */
 a, button, input, label, [role='button'] { touch-action: manipulation; }

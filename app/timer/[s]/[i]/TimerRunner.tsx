@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Close } from '@/components/Icons';
 import { openTimerPip, PipIcon } from '@/components/TimerDock';
 import { pipSupported } from '@/lib/pip';
-import { cardioElapsed, cardioEnds, cardioIdx, ENDING_RED, isEnding, patchTimers, useTimers, type CardioTimer } from '@/lib/timers';
+import { cardioElapsed, cardioEnds, cardioIdx, ENDING_RED, isEnding, patchTimers, readTimers, useTimers, warmStop, type CardioTimer } from '@/lib/timers';
 import { pipAuto, pipOpen } from '@/lib/pip';
 import { useWakeLock } from '@/lib/wakelock';
 import { askNotifications, notifState } from '@/lib/bgnotify';
@@ -30,6 +30,9 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
   const [note, setNote] = useState(false);
   useEffect(() => { setPipOk(pipSupported()); setPerm(notifState()); }, []);
   useWakeLock(true);
+  // Si quedó andando el calentamiento o el enfriamiento (por ejemplo, lo empezaste sin querer), al abrir la bici se corta:
+  // así la pastilla y la ventanita muestran la bici y no el otro timer.
+  useEffect(() => { if (readTimers().warm?.sessionId === sessionId) warmStop(); }, [sessionId]);
 
   const mine = timers.cardio && timers.cardio.sessionId === sessionId && timers.cardio.itemId === itemId ? timers.cardio : null;
   const fresh: CardioTimer = { sessionId, itemId, title, segments, base: 0, since: null, lastIdx: 0, done: false };
@@ -136,7 +139,7 @@ export default function TimerRunner({ sessionId, itemId, title, segments }: { se
               </button>
             </div>
           )}
-          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba. Si te vas a otra app, te avisa con una notificación.</p>
+          <p style={{ textAlign: 'center', fontSize: 13, color: '#a3a3a3' }}>Suena la campana y vibra al cambiar de tramo. La pantalla queda encendida. Si salís de esta pantalla, el timer sigue y lo ves arriba.</p>
         </section>
       </main>
       {note && <div className="t-claro" style={{ color: 'var(--guante)' }}><NoteSheet context={`Bici · ${title}`} onClose={() => setNote(false)} /></div>}

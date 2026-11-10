@@ -10,6 +10,9 @@ import SessionRunner, { type RunnerItem } from './SessionRunner';
 type Prev = { exercise_id: number; date: string; set_no: number; kg: string | null; reps: number | null; feel: 'liviano' | 'justo' | 'pesado' | null };
 
 /** Cuánto sube o baja cada ejercicio: mancuernas de a 2,5 kg (2,5 → 5 → 7,5 → 10); máquinas y poleas de a 5 kg (una placa). */
+/** "8–10" → "8", "10 / pierna" → "10", "12" → "12". */
+const lowReps = (reps: string | null) => (reps ?? '').match(/\d+/)?.[0] ?? '';
+
 const stepFor = (name: string) => (/mancuerna|curl martillo/i.test(name) ? 2.5 : 5);
 
 export default async function Sesion({ params, searchParams }: { params: { id: string }; searchParams: { paso?: string; r?: string } }) {
@@ -67,7 +70,12 @@ export default async function Sesion({ params, searchParams }: { params: { id: s
         const lastKg = suggest ? String(suggest.to) : p[i]?.kg ?? p[0]?.kg ?? null;
         return {
           kg: l?.kg != null ? String(Number(l.kg)) : lastKg != null ? String(Number(lastKg)) : it.weight_kg != null ? String(Number(it.weight_kg)) : '',
-          reps: l?.reps != null ? String(l.reps) : '',
+          // Reps ya cargadas (se pueden cambiar): las de la vez pasada en esa serie; la primera vez, o si hoy sube el peso,
+          // lo más bajo del rango de la rutina (con más peso cuesta llegar a lo de antes). Las series por tiempo las maneja la sesión.
+          reps: l?.reps != null ? String(l.reps)
+            : timed || it.kind !== 'ejercicio' ? ''
+            : suggest?.dir === 'up' || !p.length ? lowReps(it.reps)
+            : p[i]?.reps != null ? String(p[i].reps) : p[p.length - 1]?.reps != null ? String(p[p.length - 1].reps) : lowReps(it.reps),
           done: l?.done ?? false,
           minutes: l?.minutes ?? null,
         };

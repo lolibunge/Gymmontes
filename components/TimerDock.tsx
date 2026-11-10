@@ -55,6 +55,7 @@ export function planFor(t: Timers, now = Date.now()): BgPlan | null {
 /** Lo que muestra la ventanita (PiP): el cronómetro que esté andando. */
 export function frameFor(t: Timers, now = Date.now()) {
   if (t.rest) { const l = (t.rest.endsAt - now) / 1000; return { title: 'Descanso', big: mmss(l), sub: t.rest.next ? `Sigue: ${t.rest.next}` : t.rest.label, red: isEnding(l) }; }
+  if (t.cardio && !t.cardio.done && t.cardio.since != null && !t.warm?.endsAt) return cardioFrame(t.cardio, now);
   if (t.warm && t.warm.k < t.warm.steps.length && (t.warm.endsAt != null || t.warm.paused != null || t.warm.steps[t.warm.k]?.s == null)) {
     const w = t.warm; const l = warmLeft(w, now); const st = w.steps[w.k]; const nx = w.steps[w.k + 1];
     return {
@@ -63,13 +64,15 @@ export function frameFor(t: Timers, now = Date.now()) {
       red: w.endsAt != null && isEnding(l),
     };
   }
-  if (t.cardio && !t.cardio.done) {
-    const c = t.cardio; const el = cardioElapsed(c, now); const k = cardioIdx(c, el);
-    const left = cardioEnds(c.segments)[k] - el;
-    const next = c.segments[k + 1];
-    return { title: `${c.segments[k].label} · tramo ${k + 1}/${c.segments.length}`, big: mmss(left), sub: c.since == null ? 'En pausa' : next ? `Después: ${next.label}` : 'Último tramo', red: c.since != null && isEnding(left) };
-  }
+  if (t.cardio && !t.cardio.done) return cardioFrame(t.cardio, now);
   return null;
+}
+
+function cardioFrame(c: NonNullable<Timers['cardio']>, now: number) {
+  const el = cardioElapsed(c, now); const k = cardioIdx(c, el);
+  const left = cardioEnds(c.segments)[k] - el;
+  const next = c.segments[k + 1];
+  return { title: `${c.segments[k].label} · tramo ${k + 1}/${c.segments.length}`, big: mmss(left), sub: c.since == null ? 'En pausa' : next ? `Después: ${next.label}` : 'Último tramo', red: c.since != null && isEnding(left) };
 }
 
 /**

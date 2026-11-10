@@ -41,7 +41,9 @@ function draw() {
   const W = canvas.width - 48;
   c.fillStyle = '#0e0e0e'; c.fillRect(0, 0, canvas.width, canvas.height);
   if (!f) { c.fillStyle = '#a3a3a3'; fit(c, 'GYM MONTES', 24, 100, W, 600, 28, 16); return; }
-  c.fillStyle = '#d69ae8'; fit(c, f.title.toUpperCase(), 24, 44, W, 700, 26, 16);
+  // El título usa el color que eligió la socia (Perfil → Tu color); el canvas no lee CSS, así que lo tomamos de la página
+  const acento = getComputedStyle(document.documentElement).getPropertyValue('--acento-claro').trim() || '#d69ae8';
+  c.fillStyle = acento; fit(c, f.title.toUpperCase(), 24, 44, W, 700, 26, 16);
   c.fillStyle = f.red ? '#ff453a' : '#f5f5f5'; fit(c, f.big, 24, 138, W, 900, 92, 40);
   c.fillStyle = '#a3a3a3'; fit(c, f.sub, 24, 172, W, 500, 24, 16);
 }

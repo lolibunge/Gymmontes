@@ -85,7 +85,10 @@ export default function WarmPanel({ sessionId, kind, steps, status, onDone }: {
           <button type="button" className="btn btn-primary" style={{ flex: 1.4 }} onClick={() => start(0)}>Empezar <span aria-hidden="true">▶</span></button>
         </div>
       ) : (
-        <button type="button" className="link" style={{ alignSelf: 'center' }} onClick={() => done('salteado')}>Saltear el resto</button>
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 24 }}>
+          <button type="button" className="link" onClick={() => warmStop()}>Reiniciar</button>
+          <button type="button" className="link" onClick={() => done('salteado')}>Saltear el resto</button>
+        </div>
       )}
     </section>
   );

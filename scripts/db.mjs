@@ -1,9 +1,13 @@
 // Crea las tablas (si no existen) y carga los datos de ejemplo la primera vez.
 // Corre solo antes de cada build en Vercel. Si no hay DATABASE_URL, no hace nada.
+// En tu compu (`npm run db`) lee las variables de .env.local, igual que `npm run dev`.
+import nextEnv from '@next/env';
 import { EXERCISE_INFO, DISC_RACK } from './exercise-info.mjs';
 import { NEW_MACHINES } from './machines-new.mjs';
 import pg from 'pg';
 import crypto from 'node:crypto';
+
+nextEnv.loadEnvConfig(process.cwd(), process.env.NODE_ENV !== 'production');
 
 function connectionString() {
   const raw = process.env.DATABASE_URL || process.env.POSTGRES_URL;
@@ -280,7 +284,7 @@ const DAYS = [
 async function main() {
   const cs = connectionString();
   if (!cs) {
-    console.log('[db] Sin DATABASE_URL: no se crean tablas (build local).');
+    console.log('[db] Sin DATABASE_URL: no se crean tablas. Para tu compu, poné DATABASE_URL en .env.local.');
     return;
   }
   const client = new pg.Client({ connectionString: cs });

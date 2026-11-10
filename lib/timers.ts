@@ -124,7 +124,12 @@ export function useEndingTicks(left: number | null | undefined, running: boolean
 /** Arranca (o salta a) el paso n. Si el paso no tiene tiempo, queda esperando que toques "Listo". */
 export function warmGo(base: Omit<WarmTimer, 'k' | 'endsAt' | 'paused'>, n: number) {
   const s = base.steps[n]?.s ?? null;
-  patchTimers((t) => ({ ...t, warm: { ...base, k: n, endsAt: n < base.steps.length && s ? Date.now() + s * 1000 : null, paused: null } }));
+  patchTimers((t) => {
+    // Un solo cronómetro a la vez: si la bici estaba corriendo, queda en pausa donde iba
+    const c = t.cardio && t.cardio.since != null && !t.cardio.done
+      ? { ...t.cardio, base: cardioElapsed(t.cardio), since: null } : t.cardio;
+    return { ...t, cardio: c, warm: { ...base, k: n, endsAt: n < base.steps.length && s ? Date.now() + s * 1000 : null, paused: null } };
+  });
 }
 export function warmPause() {
   patchTimers((t) => {

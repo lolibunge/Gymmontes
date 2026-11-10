@@ -1,6 +1,7 @@
 import { pendingCount, requireOwner } from '@/lib/admin';
 import { pendingPaymentCount } from '@/lib/payments';
 import { logout } from '@/app/login/actions';
+import { isDevEmail } from '@/lib/auth';
 import OwnerTabBar from './OwnerTabBar';
 
 export const dynamic = 'force-dynamic';
@@ -16,6 +17,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             <span aria-hidden="true" style={{ width: 10, height: 10, background: 'var(--violeta)' }} />
             <span className="label" style={{ fontWeight: 900, fontSize: 15, letterSpacing: '0.08em' }}>GYM MONTES</span>
             <span className="badge" style={{ background: 'var(--guante)', color: 'var(--lona)' }}>PANEL</span>
+            {isDevEmail(u.email) && <span className="badge" style={{ background: 'var(--violeta)', color: 'var(--on-violeta)' }} title="Soporte técnico">DEV</span>}
           </div>
           <form action={logout}>
             <button className="link" style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--campana)' }} aria-label="Cerrar sesión">
@@ -27,7 +29,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </form>
         </header>
         {children}
-        <p className="caption muted" style={{ textAlign: 'center', fontSize: 11 }}>GYM MONTES · v1.26 beta · Desarrollado por Loli Bunge</p>
+        <p className="caption muted" style={{ textAlign: 'center', fontSize: 11 }}>GYM MONTES · v1.27 beta · Desarrollado por Loli Bunge</p>
       </div>
       <OwnerTabBar pending={pending} pagos={pagos} />
     </div>

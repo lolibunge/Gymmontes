@@ -40,8 +40,18 @@ export function appOrigin(req: { nextUrl: { origin: string } }) {
   return process.env.APP_URL?.replace(/\/$/, '') || req.nextUrl.origin;
 }
 
+const emails = (v?: string) => (v || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+
+/**
+ * Soporte técnico (DEV_EMAIL en Vercel): entra al panel con los mismos permisos que la dueña,
+ * pero se muestra como "dev" y no recibe los avisos por email de la dueña.
+ */
+export function isDevEmail(email: string) {
+  return emails(process.env.DEV_EMAIL).includes(email.toLowerCase());
+}
+
 export function isOwnerEmail(email: string) {
-  return (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean).includes(email.toLowerCase());
+  return emails(process.env.OWNER_EMAIL).includes(email.toLowerCase()) || isDevEmail(email);
 }
 
 export function googleEnabled() {

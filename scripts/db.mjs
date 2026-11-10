@@ -629,7 +629,8 @@ async function ensurePhrases(client) {
 }
 
 async function ensureOwners(client) {
-  const owners = (process.env.OWNER_EMAIL || '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
+  // Dueñas (OWNER_EMAIL) y soporte técnico (DEV_EMAIL): las dos entran al panel
+  const owners = `${process.env.OWNER_EMAIL || ''},${process.env.DEV_EMAIL || ''}`.split(',').map((e) => e.trim().toLowerCase()).filter(Boolean);
   if (!owners.length) return;
   const pw = process.env.OWNER_PASSWORD;
   for (const email of owners) {

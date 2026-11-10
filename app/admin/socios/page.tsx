@@ -1,3 +1,4 @@
+import { isDevEmail } from '@/lib/auth';
 import Link from 'next/link';
 import { requireOwner } from '@/lib/admin';
 import { q } from '@/lib/db';
@@ -61,12 +62,15 @@ export default async function Socios({ searchParams }: { searchParams: { q?: str
             <Link key={r.id} href={`/admin/socios/${r.id}`} className="list-row" style={{ gap: 12 }}>
               <span aria-hidden="true" style={{ width: 36, height: 36, flexShrink: 0, borderRadius: 999, background: 'var(--cuerda)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-archivo)', fontWeight: 800, fontSize: 14 }}>{r.name.slice(0, 1).toUpperCase()}</span>
               <span style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, minWidth: 0 }}>
-                <span className="strong">{r.name}{r.role === 'duena' && <span className="muted" style={{ fontWeight: 500 }}> · dueña</span>}</span>
+                <span className="strong">{r.name}{r.role === 'duena' && <span className="muted" style={{ fontWeight: 500 }}> · {isDevEmail(r.email) ? 'dev · soporte técnico' : 'dueña'}</span>}</span>
                 <span className="caption muted" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {r.pending ? 'Pidió rutina' : r.has_routine ? 'Con rutina' : 'Sin rutina'} · {r.last ? `entrenó el ${corta(r.last)}` : 'todavía no entrenó'}
                 </span>
               </span>
-              <span className={`badge ${c.cls}`} style={{ color: c.ink }}>{c.txt}</span>
+              {/* El equipo (dueña y soporte) no paga cuota: en vez de "Sin pago" dice qué rol tiene */}
+              {r.role === 'duena'
+                ? <span className="badge" style={{ background: 'var(--guante)', color: 'var(--lona)' }}>{isDevEmail(r.email) ? 'DEV' : 'DUEÑA'}</span>
+                : <span className={`badge ${c.cls}`} style={{ color: c.ink }}>{c.txt}</span>}
               <Chevron />
             </Link>
           );

@@ -1,8 +1,10 @@
 // Avisos a la dueña. El email solo se manda si están RESEND_API_KEY y OWNER_EMAIL.
 export async function emailOwner(subject: string, html: string) {
-  const to = process.env.OWNER_EMAIL;
-  if (!to) return false;
-  return sendEmail(to.split(',').map((s) => s.trim()), subject, html);
+  // A la dueña; el soporte técnico (DEV_EMAIL) no recibe estos avisos
+  const dev = (process.env.DEV_EMAIL || '').split(',').map((s) => s.trim().toLowerCase());
+  const to = (process.env.OWNER_EMAIL || '').split(',').map((s) => s.trim()).filter((s) => s && !dev.includes(s.toLowerCase()));
+  if (!to.length) return false;
+  return sendEmail(to, subject, html);
 }
 
 export const emailEnabled = () => !!process.env.RESEND_API_KEY;

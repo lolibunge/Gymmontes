@@ -27,6 +27,12 @@ export async function pendingPayments(userId?: number) {
   );
 }
 
+/** Cuántos pagos informados esperan que la dueña los confirme. */
+export async function pendingPaymentCount() {
+  const r = await one<{ n: number }>(`select count(*)::int as n from payment_reports where status = 'pendiente'`);
+  return r?.n ?? 0;
+}
+
 /**
  * Registra 30 días de cuota. Si paga antes de que venza, el mes nuevo arranca
  * cuando termina el actual (no pierde días); si ya venció, arranca el día que pagó.

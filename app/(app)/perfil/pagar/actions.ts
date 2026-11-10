@@ -35,5 +35,7 @@ export async function reportPayment(_prev: ReportState, form: FormData): Promise
     `<p style="font-family:Arial"><b>${esc(user.name)}</b> informó que pagó la cuota por <b>${METHOD_LABEL[method]}</b> el ${paidOn}.${note ? `<br>${esc(note)}` : ''}</p>
      <p style="font-family:Arial"><a href="${base}/admin/gym?tab=cobros">Confirmar el pago</a></p>`);
   revalidatePath('/perfil/pagar');
+  revalidatePath('/perfil');
+  revalidatePath('/');
   return { ok: true };
 }

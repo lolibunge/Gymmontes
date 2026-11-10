@@ -52,6 +52,15 @@ export default async function Resumen() {
         <span className="muted">{DIAS[weekdayOf(t)]} {d} de {mesLargo(t)}</span>
         <h1 className="title-lg">Hola, {u.name.split(' ')[0]}</h1>
       </div>
+      {pagos.length > 0 && (
+        <Link href="/admin/gym?tab=cobros" className="card bg-violeta" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', gap: 12 }}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="strong">💳 {pagos.length === 1 ? '1 pago por confirmar' : `${pagos.length} pagos por confirmar`}</span>
+            <span className="caption">{pagos.length === 1 ? `${pagos[0].name} avisó que pagó` : pagos.slice(0, 3).map((p) => p.name.split(' ')[0]).join(', ') + (pagos.length > 3 ? ' y más' : '')}. Hasta que lo confirmes no se renueva la cuota.</span>
+          </span>
+          <span className="strong" style={{ whiteSpace: 'nowrap' }}>Revisar →</span>
+        </Link>
+      )}
       <div style={{ display: 'flex', gap: 10 }}>
         <Kpi n={pend?.n ?? 0} label={pend?.n === 1 ? 'pedido de rutina' : 'pedidos de rutina'} href="/admin/pedidos" tone={pend?.n ? 'violeta' : 'cuerda'} />
         <Kpi n={socios?.n ?? 0} label="socios" href="/admin/socios" tone="cuerda" />

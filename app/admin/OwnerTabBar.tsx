@@ -9,7 +9,7 @@ const TABS = [
   { href: '/admin/gym', label: 'Gym', d1: 'M4 8l7-4 7 4v11H4z', d2: 'M8 19v-6h6v6' },
 ];
 
-export default function OwnerTabBar({ pending }: { pending: number }) {
+export default function OwnerTabBar({ pending, pagos = 0 }: { pending: number; pagos?: number }) {
   const p = usePathname() || '';
   return (
     <nav className="tabbar" aria-label="Menú de la dueña">
@@ -17,16 +17,16 @@ export default function OwnerTabBar({ pending }: { pending: number }) {
         {TABS.map((t) => {
           const on = t.exact ? p === t.href : p.startsWith(t.href);
           const ink = on ? 'var(--violeta-texto)' : 'var(--campana)';
-          const badge = t.label === 'Pedidos' ? pending : 0;
+          const badge = t.label === 'Pedidos' ? pending : t.label === 'Gym' ? pagos : 0;
           return (
-            <Link key={t.href} href={t.href} className="tab" aria-current={on ? 'page' : undefined} style={{ width: 76 }}>
+            <Link key={t.href} href={t.label === 'Gym' && pagos > 0 ? '/admin/gym?tab=cobros' : t.href} className="tab" aria-current={on ? 'page' : undefined} style={{ width: 76 }}>
               <span className="pill" style={{ position: 'relative' }}>
                 <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
                   <path d={t.d1} fill={on ? ink : 'none'} stroke={ink} strokeWidth="2" strokeLinejoin="round" />
                   {t.d2 && <path d={t.d2} stroke={on ? 'var(--venda)' : ink} strokeWidth="2" />}
                 </svg>
                 {badge > 0 && (
-                  <span aria-label={`${badge} nuevos`} style={{ position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--violeta)', color: 'var(--on-violeta)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{badge}</span>
+                  <span aria-label={t.label === 'Gym' ? `${badge} ${badge === 1 ? 'pago' : 'pagos'} por confirmar` : `${badge} nuevos`} style={{ position: 'absolute', top: -2, right: 6, minWidth: 18, height: 18, padding: '0 5px', borderRadius: 999, background: 'var(--violeta)', color: 'var(--on-violeta)', fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{badge}</span>
                 )}
               </span>
               {t.label}

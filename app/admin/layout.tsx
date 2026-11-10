@@ -1,4 +1,5 @@
 import { pendingCount, requireOwner } from '@/lib/admin';
+import { pendingPaymentCount } from '@/lib/payments';
 import { logout } from '@/app/login/actions';
 import OwnerTabBar from './OwnerTabBar';
 
@@ -6,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const u = await requireOwner();
-  const pending = await pendingCount();
+  const [pending, pagos] = await Promise.all([pendingCount(), pendingPaymentCount()]);
   return (
     <div className="app">
       <div className="page">
@@ -26,9 +27,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </form>
         </header>
         {children}
-        <p className="caption muted" style={{ textAlign: 'center', fontSize: 11 }}>GYM MONTES · v1.23 beta · Desarrollado por Loli Bunge</p>
+        <p className="caption muted" style={{ textAlign: 'center', fontSize: 11 }}>GYM MONTES · v1.24 beta · Desarrollado por Loli Bunge</p>
       </div>
-      <OwnerTabBar pending={pending} />
+      <OwnerTabBar pending={pending} pagos={pagos} />
     </div>
   );
 }

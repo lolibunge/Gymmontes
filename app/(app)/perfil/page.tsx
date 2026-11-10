@@ -7,10 +7,11 @@ import { declarePayment, setAccent, setTheme } from './actions';
 import { today } from '@/lib/dates';
 import { logout } from '@/app/login/actions';
 import { betaOn } from '@/lib/notes';
+import { pendingPayments } from '@/lib/payments';
 
 export default async function Perfil() {
   const user = await requireUser();
-  const [cuota, st, beta] = await Promise.all([membership(user.id), stats(user.id), betaOn()]);
+  const [cuota, st, beta, [miPago]] = await Promise.all([membership(user.id), stats(user.id), betaOn(), pendingPayments(user.id)]);
   const c = cuota && {
     'al día': { cls: 'bg-cuerda', label: 'Cuota · al día', lab: 'var(--campana)', ink: 'var(--campana)', num: 'var(--guante)', bar: 'var(--guante)' },
     'por vencer': { cls: 'bg-venda', label: 'Cuota · por vencer', lab: 'var(--violeta-texto)', ink: 'var(--guante)', num: 'var(--guante)', bar: 'var(--violeta)' },
@@ -51,6 +52,11 @@ export default async function Perfil() {
             {cuota.left < 0 ? `Hace ${-cuota.left} ${cuota.left === -1 ? 'día' : 'días'}` : cuota.left === 0 ? 'Vence hoy' : `${cuota.left} ${cuota.left === 1 ? 'día' : 'días'}`}
           </span>
           <div className="progress" aria-hidden="true"><span style={{ width: `${cuota.pct}%`, background: c.bar }} /></div>
+          {miPago && (
+            <Link href="/perfil/pagar" className="caption strong" style={{ background: 'var(--lona)', color: 'var(--guante)', borderRadius: 10, padding: '8px 10px' }}>
+              ✓ Pago enviado el {corta(miPago.paid_on)} · esperando que la dueña lo confirme
+            </Link>
+          )}
           <div className="row">
             <span className="caption" style={{ color: c.ink }}>
               {cuota.estado === 'al día' ? `Mes del ${corta(cuota.paid_on)} al ${corta(cuota.expires_on)}` : cuota.estado === 'por vencer' ? 'Te avisamos 7 días antes' : 'Pagala para seguir entrenando'}
@@ -121,7 +127,7 @@ export default async function Perfil() {
       <form action={logout} style={{ paddingTop: 8 }}>
         <button className="link" style={{ color: 'var(--campana)' }}>Cerrar sesión</button>
       </form>
-      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.23 beta · Desarrollado por Loli Bunge</p>
+      <p className="caption muted" style={{ textAlign: 'center', fontSize: 11, paddingTop: 8 }}>GYM MONTES · v1.24 beta · Desarrollado por Loli Bunge</p>
     </main>
   );
 }

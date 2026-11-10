@@ -2,11 +2,12 @@ import PendingButton from '@/components/PendingButton';
 import Link from 'next/link';
 import { callName, requireUser } from '@/lib/auth';
 import { openSessionToday, challenge, membership, minutes, monthCount, news, todaysPlan, weekDone } from '@/lib/data';
-import { DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
+import { corta, DIAS, DIAS_CORTO, dia2, mesCorto } from '@/lib/dates';
 import { Arrow, Check, Clock } from '@/components/Icons';
 import { startSession } from './sesion/actions';
 import { one } from '@/lib/db';
 import { pendingCount } from '@/lib/admin';
+import { pendingPaymentCount, pendingPayments } from '@/lib/payments';
 
 export default async function Inicio() {
   const user = await requireUser();
@@ -18,7 +19,9 @@ export default async function Inicio() {
   // Solo cuenta como "sin terminar" si tiene alguna serie hecha (una vacía no se ofrece para seguir)
   const abierta = await openSessionToday(user.id).then((a) => (a && a.done > 0 ? a : null));
   const pedido = plan ? null : await one<{ id: number }>(`select id from routine_requests where user_id = $1 and status = 'Enviado' limit 1`, [user.id]);
-  const pendientes = user.role === 'duena' ? await pendingCount() : 0;
+  const [pendientes, pagosPend] = user.role === 'duena' ? await Promise.all([pendingCount(), pendingPaymentCount()]) : [0, 0];
+  // Si ya avisó que pagó, mostramos que está en revisión en vez de "vence en X días"
+  const miPago = (await pendingPayments(user.id))[0];
   const ejercicios = plan?.items.filter((i) => i.kind === 'ejercicio') ?? [];
   const series = ejercicios.reduce((a, i) => a + (i.sets ?? 0), 0);
   const cardio = plan?.items.find((i) => i.kind === 'cardio');
@@ -47,6 +50,16 @@ export default async function Inicio() {
         </Link>
       )}
 
+      {pagosPend > 0 && (
+        <Link href="/admin/gym?tab=cobros" className="card bg-violeta" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px' }}>
+          <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span className="strong">💳 {pagosPend === 1 ? '1 pago por confirmar' : `${pagosPend} pagos por confirmar`}</span>
+            <span className="caption">La cuota se renueva cuando lo confirmás</span>
+          </span>
+          <span className="strong" style={{ whiteSpace: 'nowrap' }}>Revisar →</span>
+        </Link>
+      )}
+
       {abierta && (
         <Link href={`/sesion/${abierta.id}`} className="card bg-violeta" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px' }}>
           <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -57,7 +70,17 @@ export default async function Inicio() {
         </Link>
       )}
 
-      {cuota && cuota.estado !== 'al día' && (
+      {miPago ? (
+        <Link href="/perfil/pagar" className="card bg-venda" style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', color: 'var(--guante)' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <Check color="var(--violeta-texto)" />
+            <span style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="strong" style={{ fontSize: 14 }}>Pago enviado · esperando confirmación</span>
+              <span className="caption">Avisaste el pago del {corta(miPago.paid_on)}. Cuando la dueña lo confirme se actualiza tu cuota.</span>
+            </span>
+          </span>
+        </Link>
+      ) : cuota && cuota.estado !== 'al día' && (
         <Link href="/perfil/pagar" className={`card ${cuota.estado === 'vencida' ? 'bg-alerta' : 'bg-venda'}`} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', color: cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--guante)' }}>
           <span style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Clock color={cuota.estado === 'vencida' ? 'var(--alerta)' : 'var(--violeta-texto)'} />
